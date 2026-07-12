@@ -1,11 +1,12 @@
 "use client";
 
-import { CheckCircle2, RotateCcw, Search, Send, UserRoundCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Boxes, Building2, CheckCircle2, ChevronRight, RotateCcw, Search, Send, UserRoundCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 import { recordActivity } from "../../lib/activityLog";
 import { AssetCondition, AssetDirectoryRecord, readAssetDirectory, writeAssetDirectory } from "../../lib/assetDirectory";
 import { DepartmentRecord, EmployeeRecord, departmentName, readDepartments, readEmployees } from "../../lib/organizationDirectory";
+import { currentUser } from "../../lib/localAuth";
 
 type AllocationStatus = "Active" | "Transfer Pending" | "Returned";
 
@@ -106,9 +107,34 @@ export default function AllocationsPage() {
   const [reason, setReason] = useState("");
   const [returnCondition, setReturnCondition] = useState<AssetCondition>("Good");
   const [message, setMessage] = useState("Select an asset to allocate, transfer, or return.");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/assets", { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<AssetDirectoryRecord[]> : Promise.reject(new Error("Unable to load assets.")))
+      .then((records) => {
+        if (active) setAssets(records);
+      })
+      .catch(() => {
+        if (active) setMessage("Using the local allocation directory while the Assets service is unavailable.");
+      });
+    return () => { active = false; };
+  }, []);
 
   const activeEmployees = useMemo(() => employees.filter((employee) => employee.status === "Active"), [employees]);
-  const selectedAsset = assets.find((asset) => asset.tag === selectedAssetTag) ?? assets[0] ?? null;
+  const isAdmin = currentUser()?.role === "ADMIN";
+  const categoryOptions = useMemo(() => [...new Set(assets.map((asset) => asset.category))].sort(), [assets]);
+  const categoryAssets = useMemo(() => assets.filter((asset) => asset.category === selectedCategory), [assets, selectedCategory]);
+  const accessibleDepartments = useMemo(() => {
+    if (isAdmin) return departments.filter((department) => department.status === "Active");
+    const user = currentUser();
+    const employee = employees.find((item) => item.email.toLowerCase() === user?.username.toLowerCase());
+    return departments.filter((department) => department.id === employee?.departmentId);
+  }, [departments, employees, isAdmin]);
+  const scopedAssets = useMemo(() => categoryAssets.filter((asset) => !selectedDepartmentId || asset.department === departmentName(selectedDepartmentId, departments)), [categoryAssets, departments, selectedDepartmentId]);
+  const selectedAsset = scopedAssets.find((asset) => asset.tag === selectedAssetTag) ?? scopedAssets[0] ?? null;
   const activeAllocation = selectedAsset ? allocations.find((allocation) => allocation.assetTag === selectedAsset.tag && allocation.status !== "Returned") ?? null : null;
   const currentHolderId = activeAllocation?.employeeId ?? "";
   const transferTargetId = activeAllocation?.requestedToEmployeeId ?? targetEmployeeId;
@@ -128,13 +154,34 @@ export default function AllocationsPage() {
         allocation.reason,
       ].join(" ").toLowerCase();
 
-      return !normalized || searchable.includes(normalized);
+      const matchesScope = asset?.category === selectedCategory
+        && (!selectedDepartmentId || allocation.departmentId === selectedDepartmentId || asset?.department === departmentName(selectedDepartmentId, departments));
+      return matchesScope && (!normalized || searchable.includes(normalized));
     });
-  }, [allocations, assets, departments, employees, query]);
+  }, [allocations, assets, departments, employees, query, selectedCategory, selectedDepartmentId]);
 
   function updateAsset(assetTag: string, update: (asset: AssetDirectoryRecord) => AssetDirectoryRecord) {
     const nextAssets = assets.map((asset) => asset.tag === assetTag ? update(asset) : asset);
     saveAssets(nextAssets, setAssets);
+    const nextAsset = nextAssets.find((asset) => asset.tag === assetTag);
+    if (!nextAsset) return;
+    void fetch(`/api/assets/${encodeURIComponent(assetTag)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: nextAsset.name,
+        category: nextAsset.category,
+        serialNumber: nextAsset.serialNumber,
+        acquisitionDate: nextAsset.acquisitionDate,
+        acquisitionCost: nextAsset.acquisitionCost,
+        condition: nextAsset.condition,
+        department: nextAsset.department,
+        location: nextAsset.location,
+        shared: nextAsset.shared,
+        notes: nextAsset.notes,
+        status: nextAsset.status,
+      }),
+    }).catch(() => setMessage("Allocation saved locally, but the Assets service could not be updated."));
   }
 
   function allocateAsset() {
@@ -272,7 +319,28 @@ export default function AllocationsPage() {
       <article><span>Active employees</span><strong>{activeEmployees.length}</strong></article>
     </section>
 
-    <section className="allocation-workspace">
+    <section className="clean-panel allocation-navigator">
+      <div className="panel-title"><div><p className="eyebrow">Step 1</p><h2>Select asset category</h2></div><span>{categoryOptions.length} categories</span></div>
+      <div className="allocation-tile-grid">
+        {categoryOptions.map((category) => {
+          const count = assets.filter((asset) => asset.category === category).length;
+          return <button type="button" key={category} className={`allocation-tile ${selectedCategory === category ? "selected" : ""}`} onClick={() => { setSelectedCategory(category); setSelectedDepartmentId(""); }}><Boxes size={18} /><strong>{category}</strong><span>{count} asset{count === 1 ? "" : "s"}</span><ChevronRight size={15} /></button>;
+        })}
+      </div>
+    </section>
+
+    {selectedCategory && <section className="clean-panel allocation-navigator">
+      <div className="panel-title"><div><p className="eyebrow">Step 2</p><h2>Select department</h2></div><span>{isAdmin ? "Administrator view" : "Your department"}</span></div>
+      <div className="allocation-tile-grid">
+        {isAdmin && <button type="button" className={`allocation-tile ${selectedDepartmentId === "" ? "selected" : ""}`} onClick={() => setSelectedDepartmentId("")}><Building2 size={18} /><strong>All departments</strong><span>{categoryAssets.length} category assets</span><ChevronRight size={15} /></button>}
+        {accessibleDepartments.map((department) => {
+          const count = categoryAssets.filter((asset) => asset.department === department.name).length;
+          return <button type="button" key={department.id} className={`allocation-tile ${selectedDepartmentId === department.id ? "selected" : ""}`} onClick={() => setSelectedDepartmentId(department.id)}><Building2 size={18} /><strong>{department.name}</strong><span>{count} asset{count === 1 ? "" : "s"}</span><ChevronRight size={15} /></button>;
+        })}
+      </div>
+    </section>}
+
+    {selectedCategory && (isAdmin || selectedDepartmentId) && <section className="allocation-workspace">
       <article className="clean-panel compact-form allocation-card">
         <div className="panel-title"><h2>Allocation action</h2><span className={`status ${selectedAsset ? statusClass(activeAllocation?.status ?? "Returned") : ""}`}>{activeAllocation?.status ?? selectedAsset?.status ?? "No asset"}</span></div>
         <label>Asset<select value={selectedAsset?.tag ?? ""} onChange={(event) => setSelectedAssetTag(event.target.value)}>{assets.map((asset) => <option value={asset.tag} key={asset.tag}>{asset.tag} · {asset.name} · {asset.status}</option>)}</select></label>
@@ -316,16 +384,18 @@ export default function AllocationsPage() {
           <div><span className="activity-dot" /><strong>Approved transfers</strong><span>update the shared Assets directory immediately.</span></div>
         </div>
       </aside>
-    </section>
+    </section>}
 
-    <section className="activity-toolbar allocation-toolbar">
+    {!selectedCategory && <section className="clean-panel allocation-empty-state"><Boxes size={22} /><h2>Choose a category to start</h2><p>Select an asset category above, then narrow to a department before editing its allocations.</p></section>}
+
+    {selectedCategory && (isAdmin || selectedDepartmentId) && <section className="activity-toolbar allocation-toolbar">
       <label className="activity-search">
         <Search size={15} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search allocation history" />
       </label>
-    </section>
+    </section>}
 
-    <section className="clean-panel table-panel allocation-history-table">
+    {selectedCategory && (isAdmin || selectedDepartmentId) && <section className="clean-panel table-panel allocation-history-table">
       <table className="clean-table">
         <thead><tr><th>Asset</th><th>Holder</th><th>Department</th><th>Status</th><th>Dates</th><th>Notes</th></tr></thead>
         <tbody>
@@ -343,6 +413,6 @@ export default function AllocationsPage() {
         </tbody>
       </table>
       {visibleAllocations.length === 0 && <p className="empty-copy">No allocation records match your search.</p>}
-    </section>
+    </section>}
   </FeatureShell>;
 }

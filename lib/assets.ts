@@ -41,6 +41,7 @@ export type AssetForm = {
   location: string;
   shared: boolean;
   notes: string;
+  status?: LifecycleStatus;
 };
 
 export type AssetDraft = {
@@ -130,6 +131,7 @@ export function updateAssetRecord(asset: AssetRecord, draft: AssetDraft): AssetR
     serialNumber: draft.serialNumber.trim(),
     acquisitionDate: draft.acquisitionDate,
     acquisitionCost: draft.acquisitionCost,
+    status: draft.status ?? asset.status,
     department: draft.department.trim(),
     location: draft.location.trim(),
     condition: draft.condition,
@@ -153,6 +155,14 @@ function requireCondition(value: unknown) {
     throw new Error("Condition is invalid.");
   }
   return value as AssetCondition;
+}
+
+function optionalStatus(value: unknown) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !statuses.includes(value as LifecycleStatus)) {
+    throw new Error("Lifecycle status is invalid.");
+  }
+  return value as LifecycleStatus;
 }
 
 function requireBoolean(value: unknown, label: string) {
@@ -187,5 +197,6 @@ export function parseAssetDraft(payload: unknown): AssetDraft {
     location: requireString(data.location, "Location"),
     shared: requireBoolean(data.shared, "Shared"),
     notes: typeof data.notes === "string" ? data.notes : "",
+    status: optionalStatus(data.status),
   };
 }

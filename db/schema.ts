@@ -1,4 +1,4 @@
-import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const departments = sqliteTable("departments", {
   id: integer("id").primaryKey({ autoIncrement: true }), name: text("name").notNull(),
@@ -16,11 +16,11 @@ export const assets = sqliteTable("assets", {
   id:integer("id").primaryKey({autoIncrement:true}), tag:text("tag").notNull(), name:text("name").notNull(), categoryId:integer("category_id").notNull().references(()=>assetCategories.id),
   serialNumber:text("serial_number"), acquisitionDate:integer("acquisition_date",{mode:"timestamp"}), acquisitionCost:real("acquisition_cost"), condition:text("condition").notNull().default("Good"), location:text("location"),
   status:text("status",{enum:["AVAILABLE","ALLOCATED","RESERVED","UNDER_MAINTENANCE","LOST","RETIRED","DISPOSED"]}).notNull().default("AVAILABLE"), shared:integer("shared",{mode:"boolean"}).notNull().default(false), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
-}, table=>[uniqueIndex("assets_tag_unique").on(table.tag)]);
+}, table=>[uniqueIndex("assets_tag_unique").on(table.tag), index("assets_location_idx").on(table.location)]);
 export const assetProfiles = sqliteTable("asset_profiles", {
   assetId:integer("asset_id").primaryKey().references(()=>assets.id), department:text("department").notNull(), qrCode:text("qr_code").notNull(), notes:text("notes").notNull(),
   lastUpdated:text("last_updated").notNull(), recentActivity:text("recent_activity").notNull(), allocationHistory:text("allocation_history").notNull().default("[]"), maintenanceHistory:text("maintenance_history").notNull().default("[]"),
-});
+}, table=>[index("asset_profiles_department_idx").on(table.department)]);
 export const allocations = sqliteTable("allocations", {
   id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), employeeId:integer("employee_id").references(()=>employees.id), departmentId:integer("department_id").references(()=>departments.id),
   expectedReturnAt:integer("expected_return_at",{mode:"timestamp"}), returnedAt:integer("returned_at",{mode:"timestamp"}), checkInNotes:text("check_in_notes"), status:text("status",{enum:["ACTIVE","RETURNED","TRANSFERRED"]}).notNull().default("ACTIVE"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
@@ -37,3 +37,32 @@ export const notifications = sqliteTable("notifications", {
 export const activityLogs = sqliteTable("activity_logs", {
   id:integer("id").primaryKey({autoIncrement:true}), actorId:integer("actor_id").references(()=>employees.id), action:text("action").notNull(), entityType:text("entity_type").notNull(), entityId:text("entity_id").notNull(), metadata:text("metadata",{mode:"json"}), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 });
+
+export const auditCycles = sqliteTable("audit_cycles", {
+  id:text("id").primaryKey(),
+  departmentId:text("department_id"),
+  locationId:text("location_id"),
+  status:text("status",{enum:["DRAFT","ACTIVE","CLOSED"]}).notNull().default("ACTIVE"),
+  startedAt:integer("started_at",{mode:"timestamp"}).notNull(),
+  closedAt:integer("closed_at",{mode:"timestamp"}),
+  createdBy:text("created_by").notNull(),
+}, table=>[index("audit_cycles_scope_status_idx").on(table.departmentId, table.locationId, table.status)]);
+
+export const auditAssignments = sqliteTable("audit_assignments", {
+  id:text("id").primaryKey(),
+  auditCycleId:text("audit_cycle_id").notNull().references(()=>auditCycles.id),
+  employeeId:text("employee_id").notNull(),
+}, table=>[index("audit_assignments_cycle_idx").on(table.auditCycleId)]);
+
+export const auditItems = sqliteTable("audit_items", {
+  id:text("id").primaryKey(),
+  auditCycleId:text("audit_cycle_id").notNull().references(()=>auditCycles.id),
+  assetId:integer("asset_id").notNull().references(()=>assets.id),
+  expectedLocation:text("expected_location").notNull(),
+  verificationStatus:text("verification_status",{enum:["PENDING","VERIFIED","MISSING","DAMAGED"]}).notNull().default("PENDING"),
+  verifiedBy:text("verified_by"),
+  updatedAt:integer("updated_at",{mode:"timestamp"}).notNull(),
+}, table=>[
+  index("audit_items_cycle_status_idx").on(table.auditCycleId, table.verificationStatus),
+  uniqueIndex("audit_items_cycle_asset_unique").on(table.auditCycleId, table.assetId),
+]);

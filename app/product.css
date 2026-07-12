@@ -2688,6 +2688,91 @@ body.assetflow-dialog-open .product-content > :not(.asset-modal-backdrop):not(.a
   overflow: hidden;
 }
 
+.allocation-navigator {
+  display: grid;
+  gap: 16px;
+}
+
+.allocation-navigator .panel-title > span {
+  color: var(--af-muted);
+  font-size: 11px;
+}
+
+.allocation-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.allocation-tile {
+  min-height: 122px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: start;
+  gap: 8px;
+  padding: 15px;
+  border: 1px solid var(--af-line);
+  border-radius: 12px;
+  background: var(--af-panel-2);
+  color: var(--af-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, transform .16s ease, background .16s ease;
+}
+
+.allocation-tile:hover,
+.allocation-tile.selected {
+  border-color: var(--af-green-strong);
+  background: var(--af-green-soft);
+  transform: translateY(-2px);
+}
+
+.allocation-tile svg:first-child {
+  color: var(--af-green);
+}
+
+.allocation-tile strong,
+.allocation-tile span {
+  grid-column: 1 / -1;
+}
+
+.allocation-tile strong {
+  font-size: 13px;
+}
+
+.allocation-tile span {
+  color: var(--af-muted);
+  font-size: 10px;
+}
+
+.allocation-tile svg:last-child {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--af-muted);
+}
+
+.allocation-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 42px 20px;
+  text-align: center;
+}
+
+.allocation-empty-state svg {
+  color: var(--af-green);
+}
+
+.allocation-empty-state h2,
+.allocation-empty-state p {
+  margin: 0;
+}
+
+.allocation-empty-state p {
+  max-width: 480px;
+  color: var(--af-muted);
+}
+
 .status.allocation-transfer-pending {
   border-color: color-mix(in srgb, var(--af-amber) 48%, var(--af-line));
   background: var(--af-amber-soft);
@@ -2752,6 +2837,10 @@ html[data-theme="light"] .success-inline {
   .allocation-actions-row {
     grid-template-columns: 1fr;
   }
+
+  .allocation-tile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-height: 700px) and (min-width: 761px) {
@@ -2808,6 +2897,10 @@ html[data-theme="light"] .success-inline {
   .activity-metrics,
   .activity-toolbar,
   .allocation-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .allocation-tile-grid {
     grid-template-columns: 1fr;
   }
 }
