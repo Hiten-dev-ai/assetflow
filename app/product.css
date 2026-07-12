@@ -151,13 +151,6 @@ textarea {
   transition: background-color .16s ease, border-color .16s ease, color .16s ease;
 }
 
-.product-shell .app-sidebar:hover,
-.product-shell .app-sidebar:focus-within,
-.product-shell .app-sidebar:not(:hover):not(:focus-within) {
-  width: var(--af-sidebar-width) !important;
-  box-shadow: var(--af-shadow);
-}
-
 .product-shell .sidebar-top {
   height: 42px;
   min-width: 0;
@@ -176,8 +169,7 @@ textarea {
   letter-spacing: 0;
 }
 
-.product-shell .sidebar-brand strong,
-.product-shell .app-sidebar:not(:hover) .sidebar-brand strong {
+.product-shell .sidebar-brand strong {
   display: inline !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -210,8 +202,7 @@ textarea {
   flex: 1 1 auto;
 }
 
-.product-shell .sidebar-link,
-.product-shell .app-sidebar:not(:hover) .sidebar-link {
+.product-shell .sidebar-link {
   width: auto !important;
   height: 38px;
   display: flex;
@@ -232,8 +223,7 @@ textarea {
   box-shadow: none;
 }
 
-.product-shell .sidebar-link span,
-.product-shell .app-sidebar:not(:hover) .sidebar-link span {
+.product-shell .sidebar-link span {
   display: inline !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -272,18 +262,20 @@ textarea {
   margin-top: 10px;
   padding-top: 9px;
   border-top: 1px solid var(--af-sidebar-border);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.product-shell .sidebar-account,
-.product-shell .app-sidebar:not(:hover) .sidebar-account {
+.product-shell .sidebar-account {
   width: auto !important;
   height: 44px;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 28px !important;
+  grid-template-columns: 36px minmax(0, 1fr) !important;
   align-items: center;
   justify-items: stretch !important;
   gap: 7px;
-  margin: 7px 0 5px;
+  margin: 3px 0 0;
   padding: 0 4px !important;
   border: 0;
 }
@@ -300,8 +292,7 @@ textarea {
   font-size: 9px;
 }
 
-.product-shell .sidebar-account > span:nth-child(2),
-.product-shell .app-sidebar:not(:hover) .sidebar-account > span:nth-child(2) {
+.product-shell .sidebar-account > span:nth-child(2) {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -325,24 +316,8 @@ textarea {
   font-size: 8px;
 }
 
-.product-shell .sidebar-account button,
-.product-shell .app-sidebar:not(:hover) .sidebar-account button {
-  display: grid !important;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--af-sidebar-muted);
-  cursor: pointer;
-}
-
-.product-shell .sidebar-account button:hover {
-  background: var(--af-sidebar-hover);
-  color: var(--af-sidebar-text);
-}
-
 .product-shell .sidebar-theme-toggle,
-.product-shell .app-sidebar:not(:hover) .sidebar-theme-toggle {
+.product-shell .sidebar-logout {
   width: 100% !important;
   height: 36px;
   display: flex;
@@ -359,15 +334,28 @@ textarea {
 }
 
 .product-shell .sidebar-theme-toggle span,
-.product-shell .app-sidebar:not(:hover) .sidebar-theme-toggle span {
+.product-shell .sidebar-logout span {
   display: inline !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-.product-shell .sidebar-theme-toggle:hover {
+.product-shell .sidebar-theme-toggle:hover,
+.product-shell .sidebar-logout:hover {
   background: var(--af-sidebar-hover);
   color: var(--af-sidebar-text);
+}
+
+.product-shell .sidebar-logout {
+  margin-top: 1px;
+  border-color: color-mix(in srgb, var(--af-red) 34%, var(--af-sidebar-border));
+  color: var(--af-red);
+}
+
+.product-shell .sidebar-logout:hover {
+  border-color: var(--af-red);
+  background: var(--af-red-soft);
+  color: var(--af-red);
 }
 
 .stat-grid {
@@ -1109,10 +1097,7 @@ textarea {
     display: block;
   }
 
-  .product-shell .app-sidebar,
-  .product-shell .app-sidebar:hover,
-  .product-shell .app-sidebar:focus-within,
-  .product-shell .app-sidebar:not(:hover):not(:focus-within) {
+  .product-shell .app-sidebar {
     position: static;
     width: auto !important;
     height: auto;

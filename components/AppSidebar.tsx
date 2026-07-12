@@ -32,8 +32,18 @@ export function AppSidebar() {
   }
 
   return <aside className="app-sidebar" aria-label="Application sidebar">
-    <div className="sidebar-top"><Link className="sidebar-brand" href="/"><span className="sidebar-logo">AF</span><strong>AssetFlow</strong></Link></div>
+    <div className="sidebar-top">
+      <Link className="sidebar-brand" href="/">
+        <span className="sidebar-logo">AF</span>
+        <strong>AssetFlow</strong>
+      </Link>
+    </div>
     <nav className="sidebar-primary" aria-label="Primary navigation">{primary.map(renderLink)}</nav>
-    <div className="sidebar-footer"><nav className="sidebar-secondary" aria-label="Administration">{secondary.map(renderLink)}</nav><div className="sidebar-account"><span className="sidebar-avatar">{initials}</span><span><strong>{user?.name ?? "Hiten S"}</strong><small>{user?.role === "ADMIN" ? "Administrator" : "Employee"}</small></span><button onClick={() => { signOut(); router.push("/login"); }} aria-label="Sign out"><LogOut size={16}/></button></div><button className="sidebar-theme-toggle" onClick={toggleTheme} aria-label={dark ? "Use light theme" : "Use dark theme"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}<span>{dark ? "Light theme" : "Dark theme"}</span></button></div>
+    <div className="sidebar-footer">
+      <button className="sidebar-theme-toggle" onClick={toggleTheme} aria-label={dark ? "Use light theme" : "Use dark theme"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}<span>{dark ? "Light theme" : "Dark theme"}</span></button>
+      <nav className="sidebar-secondary" aria-label="Administration">{secondary.map(renderLink)}</nav>
+      <div className="sidebar-account"><span className="sidebar-avatar">{initials}</span><span><strong>{user?.name ?? "Hiten S"}</strong><small>{user?.role === "ADMIN" ? "Administrator" : "Employee"}</small></span></div>
+      <button className="sidebar-logout" onClick={() => { signOut(); router.push("/login"); }} aria-label="Sign out"><LogOut size={16}/><span>Sign out</span></button>
+    </div>
   </aside>;
 }
