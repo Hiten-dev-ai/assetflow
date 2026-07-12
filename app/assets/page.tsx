@@ -1,221 +1,31 @@
 "use client";
 
 import { CheckCircle2, Eye, FileText, Plus, Search, Upload, X } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 import { recordActivity } from "../../lib/activityLog";
-import { readAssetDirectory, writeAssetDirectory } from "../../lib/assetDirectory";
 import { readAssetCategories, readDepartments } from "../../lib/organizationDirectory";
-
-type LifecycleStatus = "Available" | "Allocated" | "Reserved" | "Under Maintenance" | "Lost" | "Retired" | "Disposed";
-type AssetCondition = "Excellent" | "Good" | "Fair" | "Needs Service" | "Damaged";
-
-type HistoryEntry = {
-  date: string;
-  title: string;
-  detail: string;
-};
-
-type AssetRecord = {
-  tag: string;
-  name: string;
-  category: string;
-  serialNumber: string;
-  acquisitionDate: string;
-  acquisitionCost: number;
-  status: LifecycleStatus;
-  department: string;
-  location: string;
-  condition: AssetCondition;
-  shared: boolean;
-  qrCode: string;
-  notes: string;
-  lastUpdated: string;
-  recentActivity: string;
-  allocationHistory: HistoryEntry[];
-  maintenanceHistory: HistoryEntry[];
-};
-
-type AssetForm = {
-  name: string;
-  category: string;
-  serialNumber: string;
-  acquisitionDate: string;
-  acquisitionCost: string;
-  condition: AssetCondition;
-  department: string;
-  location: string;
-  shared: boolean;
-  notes: string;
-};
-
-const statuses: LifecycleStatus[] = ["Available", "Allocated", "Reserved", "Under Maintenance", "Lost", "Retired", "Disposed"];
-const conditions: AssetCondition[] = ["Excellent", "Good", "Fair", "Needs Service", "Damaged"];
-const categories = ["Laptop", "Projector", "Furniture", "Vehicle", "Room", "Shared Lab Kit", "Equipment"];
-const departments = ["Engineering", "Design", "Marketing", "Operations", "Finance", "Facilities", "IT"];
-const locations = ["Bengaluru HQ", "HQ Floor 2", "Room B2", "Warehouse", "Chennai Office", "Mumbai Office"];
-
-const seedAssets: AssetRecord[] = [
-  {
-    tag: "AF-0001",
-    name: "Dell Latitude 7440",
-    category: "Laptop",
-    serialNumber: "DL-7440-IN-9021",
-    acquisitionDate: "2025-01-18",
-    acquisitionCost: 1290,
-    status: "Allocated",
-    department: "Engineering",
-    location: "Bengaluru HQ",
-    condition: "Good",
-    shared: false,
-    qrCode: "QR-AF-0001-DL7440",
-    notes: "Issued with charger and privacy screen. Eligible for battery health check in Q4.",
-    lastUpdated: "Today, 10:10",
-    recentActivity: "Allocated to Priya Shah",
-    allocationHistory: [
-      { date: "Mar 12, 2026", title: "Allocated to Priya Shah", detail: "Engineering laptop handoff completed with charger." },
-      { date: "Jan 22, 2026", title: "Returned by Arjun Nair", detail: "Condition marked good after inspection." },
-    ],
-    maintenanceHistory: [
-      { date: "May 03, 2026", title: "Battery diagnostic", detail: "Battery health at 88 percent. No repair required." },
-    ],
-  },
-  {
-    tag: "AF-0002",
-    name: "Conference Room B2",
-    category: "Room",
-    serialNumber: "ROOM-B2-HQ",
-    acquisitionDate: "2024-09-01",
-    acquisitionCost: 0,
-    status: "Available",
-    department: "Facilities",
-    location: "Room B2",
-    condition: "Excellent",
-    shared: true,
-    qrCode: "QR-AF-0002-ROOMB2",
-    notes: "Bookable shared room with VC screen, whiteboard, and six seats.",
-    lastUpdated: "Today, 09:30",
-    recentActivity: "Released after morning booking",
-    allocationHistory: [
-      { date: "Jul 07, 2026", title: "Reserved by Procurement", detail: "One hour vendor review session." },
-      { date: "Jul 06, 2026", title: "Reserved by Design", detail: "Sprint planning room booking completed." },
-    ],
-    maintenanceHistory: [
-      { date: "Jun 28, 2026", title: "VC system check", detail: "HDMI and camera tested successfully." },
-    ],
-  },
-  {
-    tag: "AF-0003",
-    name: "Epson EB-X49 Projector",
-    category: "Projector",
-    serialNumber: "EP-X49-4472",
-    acquisitionDate: "2023-11-14",
-    acquisitionCost: 620,
-    status: "Under Maintenance",
-    department: "Operations",
-    location: "HQ Floor 2",
-    condition: "Needs Service",
-    shared: true,
-    qrCode: "QR-AF-0003-EPSON",
-    notes: "Lamp flicker reported after repeated training-room usage.",
-    lastUpdated: "Yesterday, 16:45",
-    recentActivity: "Maintenance request approved",
-    allocationHistory: [
-      { date: "Jun 18, 2026", title: "Booked by HR", detail: "Used for onboarding presentation." },
-    ],
-    maintenanceHistory: [
-      { date: "Jul 11, 2026", title: "Lamp service approved", detail: "Moved to under maintenance and technician assigned." },
-      { date: "Apr 08, 2026", title: "Lens cleaning", detail: "Routine cleaning completed." },
-    ],
-  },
-  {
-    tag: "AF-0004",
-    name: "Toyota Innova Fleet Car",
-    category: "Vehicle",
-    serialNumber: "KA-05-AF-1842",
-    acquisitionDate: "2024-04-20",
-    acquisitionCost: 28500,
-    status: "Reserved",
-    department: "Operations",
-    location: "Bengaluru HQ",
-    condition: "Good",
-    shared: true,
-    qrCode: "QR-AF-0004-INNOVA",
-    notes: "Shared transport vehicle. Requires manager approval for overnight booking.",
-    lastUpdated: "Today, 08:05",
-    recentActivity: "Reserved for client visit",
-    allocationHistory: [
-      { date: "Jul 12, 2026", title: "Reserved by Sales", detail: "Client pickup window blocked for 2:00 PM to 5:00 PM." },
-      { date: "Jul 03, 2026", title: "Returned by Admin team", detail: "Fuel card and keys returned." },
-    ],
-    maintenanceHistory: [
-      { date: "Jun 15, 2026", title: "Standard service", detail: "Oil change and tire check completed." },
-    ],
-  },
-  {
-    tag: "AF-0005",
-    name: "Ergonomic Office Chair",
-    category: "Furniture",
-    serialNumber: "CHR-ERG-1188",
-    acquisitionDate: "2022-08-10",
-    acquisitionCost: 180,
-    status: "Available",
-    department: "Design",
-    location: "Warehouse",
-    condition: "Fair",
-    shared: false,
-    qrCode: "QR-AF-0005-CHAIR",
-    notes: "Spare chair available for workstation setup.",
-    lastUpdated: "Jul 10, 2026",
-    recentActivity: "Moved to warehouse",
-    allocationHistory: [
-      { date: "Jun 30, 2026", title: "Returned by Design", detail: "Moved from Floor 3 studio to warehouse." },
-    ],
-    maintenanceHistory: [],
-  },
-];
-
-function emptyForm(): AssetForm {
-  return {
-    name: "",
-    category: "",
-    serialNumber: "",
-    acquisitionDate: "",
-    acquisitionCost: "",
-    condition: "Good",
-    department: "",
-    location: "",
-    shared: false,
-    notes: "",
-  };
-}
-
-function statusClass(status: LifecycleStatus) {
-  return status.toLowerCase().replace(/\s+/g, "-");
-}
-
-function unique(values: string[]) {
-  return [...new Set(values)].sort((first, second) => first.localeCompare(second));
-}
-
-function nextAssetTag(assets: AssetRecord[]) {
-  const highest = assets.reduce((max, asset) => {
-    const numeric = Number(asset.tag.replace("AF-", ""));
-    return Number.isFinite(numeric) ? Math.max(max, numeric) : max;
-  }, 0);
-  return `AF-${String(highest + 1).padStart(4, "0")}`;
-}
-
-function formatCurrency(amount: number) {
-  if (amount === 0) return "Not capitalized";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
-}
+import {
+  type AssetCondition,
+  type AssetDraft,
+  type AssetForm,
+  type AssetRecord,
+  type HistoryEntry,
+  categories,
+  conditions,
+  departments,
+  emptyAssetForm,
+  formatCurrency,
+  locations,
+  statusClass,
+  statuses,
+  unique,
+} from "../../lib/assets";
 
 export default function AssetsPage() {
-  const [assets, setAssets] = useState<AssetRecord[]>(() => {
-    const records = readAssetDirectory() as AssetRecord[];
-    return records.length > 0 ? records : seedAssets;
-  });
+  const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState({
     category: "All",
@@ -225,11 +35,12 @@ export default function AssetsPage() {
     shared: "All",
     condition: "All",
   });
-  const [form, setForm] = useState<AssetForm>(() => emptyForm());
+  const [form, setForm] = useState<AssetForm>(() => emptyAssetForm());
   const [formError, setFormError] = useState("");
   const [toast, setToast] = useState("");
   const [creating, setCreating] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
   const [masterCategories] = useState(() => readAssetCategories().filter((category) => category.status === "Active").map((category) => category.name));
   const [masterDepartments] = useState(() => readDepartments().filter((department) => department.status === "Active").map((department) => department.name));
 
@@ -238,6 +49,36 @@ export default function AssetsPage() {
     departments: unique([...departments, ...masterDepartments, ...assets.map((asset) => asset.department)]),
     locations: unique([...locations, ...assets.map((asset) => asset.location)]),
   }), [assets, masterCategories, masterDepartments]);
+
+  const loadAssets = useCallback(async (preferredTag?: string | null) => {
+    setLoading(true);
+    setLoadError("");
+
+    try {
+      const response = await fetch("/api/assets", { cache: "no-store" });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "Unable to load assets.");
+      }
+
+      const nextAssets = (await response.json()) as AssetRecord[];
+      setAssets(nextAssets);
+
+      if (preferredTag !== undefined) {
+        setSelectedTag(preferredTag);
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load assets.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadAssets();
+  }, [loadAssets]);
 
   const visibleAssets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -263,6 +104,7 @@ export default function AssetsPage() {
   }, [assets, filters, query]);
 
   const selectedAsset = assets.find((asset) => asset.tag === selectedTag) ?? null;
+  const isEditing = editingTag !== null;
   const dialogOpen = creating || Boolean(selectedAsset);
 
   useEffect(() => {
@@ -270,16 +112,31 @@ export default function AssetsPage() {
     return () => document.body.classList.remove("assetflow-dialog-open");
   }, [dialogOpen]);
 
-  useEffect(() => {
-    writeAssetDirectory(assets);
-  }, [assets]);
-
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
   function openCreateModal() {
-    setForm(emptyForm());
+    setEditingTag(null);
+    setForm(emptyAssetForm());
+    setFormError("");
+    setCreating(true);
+  }
+
+  function openEditModal(asset: AssetRecord) {
+    setEditingTag(asset.tag);
+    setForm({
+      name: asset.name,
+      category: asset.category,
+      serialNumber: asset.serialNumber,
+      acquisitionDate: asset.acquisitionDate,
+      acquisitionCost: String(asset.acquisitionCost),
+      condition: asset.condition,
+      department: asset.department,
+      location: asset.location,
+      shared: asset.shared,
+      notes: asset.notes,
+    });
     setFormError("");
     setCreating(true);
   }
@@ -287,9 +144,10 @@ export default function AssetsPage() {
   function closeCreateModal() {
     setCreating(false);
     setFormError("");
+    setEditingTag(null);
   }
 
-  function submitAsset(event: FormEvent<HTMLFormElement>) {
+  async function submitAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
     const requiredFields: Array<[keyof AssetForm, string]> = [
@@ -314,39 +172,70 @@ export default function AssetsPage() {
       return;
     }
 
-    const tag = nextAssetTag(assets);
-    const newAsset: AssetRecord = {
-      tag,
+    const draft: AssetDraft = {
       name: form.name.trim(),
       category: form.category.trim(),
       serialNumber: form.serialNumber.trim(),
       acquisitionDate: form.acquisitionDate,
       acquisitionCost,
-      status: "Available",
+      condition: form.condition,
       department: form.department.trim(),
       location: form.location.trim(),
-      condition: form.condition,
       shared: form.shared,
-      qrCode: `QR-${tag}-${form.serialNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) || "ASSET"}`,
-      notes: form.notes.trim() || "No notes added.",
-      lastUpdated: "Just now",
-      recentActivity: "Created in asset directory",
-      allocationHistory: [],
-      maintenanceHistory: [],
+      notes: form.notes.trim(),
     };
 
-    setAssets((current) => [...current, newAsset]);
-    setSelectedTag(tag);
-    setCreating(false);
-    setToast(`${tag} was added to the asset directory.`);
-    recordActivity({
-      kind: "Asset",
-      title: `${tag} registered`,
-      description: `${newAsset.name} added to ${newAsset.department}.`,
-      actor: "Asset registry",
-      target: tag,
-      severity: "Success",
-    });
+    try {
+      const endpoint = editingTag ? `/api/assets/${encodeURIComponent(editingTag)}` : "/api/assets";
+      const method = editingTag ? "PATCH" : "POST";
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Unable to save asset.");
+      }
+
+      const savedAsset = payload as AssetRecord;
+      const wasEditing = editingTag !== null;
+      setCreating(false);
+      setToast(wasEditing ? `${savedAsset.tag} was updated.` : `${savedAsset.tag} was added to the asset directory.`);
+      setEditingTag(null);
+      recordActivity({
+        kind: "Asset",
+        title: wasEditing ? `${savedAsset.tag} updated` : `${savedAsset.tag} registered`,
+        description: `${savedAsset.name} ${wasEditing ? "updated in" : "added to"} ${savedAsset.department}.`,
+        actor: "Asset registry",
+        target: savedAsset.tag,
+        severity: "Success",
+      });
+      await loadAssets(savedAsset.tag);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Unable to save asset.");
+    }
+  }
+
+  async function removeAsset(asset: AssetRecord) {
+    if (!window.confirm(`Delete ${asset.tag} - ${asset.name}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/assets/${encodeURIComponent(asset.tag)}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Unable to delete asset.");
+      }
+
+      setToast(`${asset.tag} was deleted.`);
+      await loadAssets(null);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Unable to delete asset.");
+    }
   }
 
   return <FeatureShell title="Assets" actions={<button className="button primary" onClick={openCreateModal}><Plus size={15} />New Asset</button>}>
@@ -356,6 +245,8 @@ export default function AssetsPage() {
       <article><span>Available</span><strong>{assets.filter((asset) => asset.status === "Available").length}</strong><small>Ready for use</small></article>
       <article><span>Needs attention</span><strong>{assets.filter((asset) => ["Under Maintenance", "Lost"].includes(asset.status)).length}</strong><small>Maintenance or exceptions</small></article>
     </section>
+
+    {loadError && <div className="notice danger" role="alert">{loadError}</div>}
 
     {toast && <div className="asset-toast" role="status"><CheckCircle2 size={15} />{toast}<button type="button" onClick={() => setToast("")} aria-label="Dismiss notification"><X size={14} /></button></div>}
 
@@ -375,6 +266,7 @@ export default function AssetsPage() {
     </section>
 
     <section className="clean-panel table-panel asset-table-panel">
+      {loading && <p className="empty-copy">Loading asset records...</p>}
       <table className="clean-table asset-table">
         <thead>
           <tr>
@@ -403,13 +295,13 @@ export default function AssetsPage() {
           </tr>)}
         </tbody>
       </table>
-      {visibleAssets.length === 0 && <p className="empty-copy">No assets match the current search and filters.</p>}
+      {!loading && visibleAssets.length === 0 && <p className="empty-copy">No assets match the current search and filters.</p>}
     </section>
 
     {creating && <div className="asset-modal-backdrop" role="presentation">
       <section className="asset-modal" role="dialog" aria-modal="true" aria-labelledby="new-asset-title">
         <header>
-          <div><p>Asset registration</p><h2 id="new-asset-title">New Asset</h2></div>
+          <div><p>{isEditing ? "Asset update" : "Asset registration"}</p><h2 id="new-asset-title">{isEditing ? "Edit Asset" : "New Asset"}</h2></div>
           <button type="button" onClick={closeCreateModal} aria-label="Close new asset form"><X size={17} /></button>
         </header>
         <form className="asset-form" onSubmit={submitAsset}>
@@ -428,7 +320,7 @@ export default function AssetsPage() {
           <datalist id="asset-departments">{filterOptions.departments.map((value) => <option value={value} key={value} />)}</datalist>
           <datalist id="asset-locations">{locations.map((value) => <option value={value} key={value} />)}</datalist>
           {formError && <p className="asset-form-error" role="alert">{formError}</p>}
-          <footer><button type="button" className="button" onClick={closeCreateModal}>Cancel</button><button type="submit" className="button primary">Create Asset</button></footer>
+          <footer><button type="button" className="button" onClick={closeCreateModal}>Cancel</button><button type="submit" className="button primary">{isEditing ? "Save Changes" : "Create Asset"}</button></footer>
         </form>
       </section>
     </div>}
@@ -458,6 +350,7 @@ export default function AssetsPage() {
         <section className="asset-notes-card"><h3>Notes</h3><p>{selectedAsset.notes}</p></section>
         <HistorySection title="Allocation history" entries={selectedAsset.allocationHistory} empty="No allocation history has been recorded yet." />
         <HistorySection title="Maintenance history" entries={selectedAsset.maintenanceHistory} empty="No maintenance history has been recorded yet." />
+        <footer className="asset-detail-actions"><button type="button" className="button" onClick={() => openEditModal(selectedAsset)}>Edit asset</button><button type="button" className="button" onClick={() => removeAsset(selectedAsset)}>Delete asset</button></footer>
       </aside>
     </div>}
   </FeatureShell>;

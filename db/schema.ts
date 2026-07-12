@@ -17,6 +17,10 @@ export const assets = sqliteTable("assets", {
   serialNumber:text("serial_number"), acquisitionDate:integer("acquisition_date",{mode:"timestamp"}), acquisitionCost:real("acquisition_cost"), condition:text("condition").notNull().default("Good"), location:text("location"),
   status:text("status",{enum:["AVAILABLE","ALLOCATED","RESERVED","UNDER_MAINTENANCE","LOST","RETIRED","DISPOSED"]}).notNull().default("AVAILABLE"), shared:integer("shared",{mode:"boolean"}).notNull().default(false), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 }, table=>[uniqueIndex("assets_tag_unique").on(table.tag)]);
+export const assetProfiles = sqliteTable("asset_profiles", {
+  assetId:integer("asset_id").primaryKey().references(()=>assets.id), department:text("department").notNull(), qrCode:text("qr_code").notNull(), notes:text("notes").notNull(),
+  lastUpdated:text("last_updated").notNull(), recentActivity:text("recent_activity").notNull(), allocationHistory:text("allocation_history").notNull().default("[]"), maintenanceHistory:text("maintenance_history").notNull().default("[]"),
+});
 export const allocations = sqliteTable("allocations", {
   id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), employeeId:integer("employee_id").references(()=>employees.id), departmentId:integer("department_id").references(()=>departments.id),
   expectedReturnAt:integer("expected_return_at",{mode:"timestamp"}), returnedAt:integer("returned_at",{mode:"timestamp"}), checkInNotes:text("check_in_notes"), status:text("status",{enum:["ACTIVE","RETURNED","TRANSFERRED"]}).notNull().default("ACTIVE"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
