@@ -6,8 +6,15 @@ const demoUsers: LocalUser[] = [
   { id: "sujith-kumar-p", name: "Sujith Kumar P", email: "sujith.p@assetflow.demo", password: "Sujith@2026", role: "EMPLOYEE" },
   { id: "maha-lakshmi", name: "Maha Lakshmi", email: "maha.l@assetflow.demo", password: "Maha@2026", role: "EMPLOYEE" },
 ];
-function readUsers(): LocalUser[] { const saved = localStorage.getItem(USERS_KEY); if (!saved) { localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers)); return demoUsers; } try { return JSON.parse(saved) as LocalUser[]; } catch { return demoUsers; } }
+function readUsers(): LocalUser[] {
+  let saved: LocalUser[] = [];
+  try { saved = JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]") as LocalUser[]; } catch { saved = []; }
+  const custom = saved.filter((user) => !demoUsers.some((demo) => demo.id === user.id || demo.email === user.email));
+  const users = [...demoUsers, ...custom];
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  return users;
+}
 export function signUp(name: string, email: string, password: string): LocalUser { const users = readUsers(); if (users.some((user) => user.email.toLowerCase() === email.trim().toLowerCase())) throw new Error("An account with this email already exists."); const user: LocalUser = { id: crypto.randomUUID(), name: name.trim(), email: email.trim().toLowerCase(), password, role: "EMPLOYEE" }; localStorage.setItem(USERS_KEY, JSON.stringify([...users, user])); localStorage.setItem(SESSION_KEY, user.id); return user; }
-export function signIn(email: string, password: string): LocalUser { const user = readUsers().find((candidate) => candidate.email === email.trim().toLowerCase() && candidate.password === password); if (!user) throw new Error("Incorrect email or password."); localStorage.setItem(SESSION_KEY, user.id); return user; }
+export function signIn(email: string, password: string): LocalUser { const user = readUsers().find((candidate) => candidate.email.toLowerCase() === email.trim().toLowerCase() && candidate.password === password); if (!user) throw new Error("Incorrect email or password."); localStorage.setItem(SESSION_KEY, user.id); return user; }
 export function currentUser(): LocalUser | null { const id = localStorage.getItem(SESSION_KEY); return readUsers().find((user) => user.id === id) ?? null; }
 export function signOut() { localStorage.removeItem(SESSION_KEY); }

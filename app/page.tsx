@@ -1,46 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { AppSidebar } from "../components/AppSidebar";
 import { LoginScreen } from "../components/LoginScreen";
 import { currentUser } from "../lib/localAuth";
 
-const kpis = [["Assets available", "284", "+12 this month", "green"], ["Assets allocated", "1,248", "81% utilization", "blue"], ["Maintenance today", "18", "5 need approval", "amber"], ["Active bookings", "36", "8 starting soon", "violet"], ["Pending transfers", "7", "3 overdue", "rose"], ["Upcoming returns", "24", "Next 7 days", "slate"]];
-const allocations = [{ tag:"AF-0114", asset:"MacBook Pro 14", holder:"Priya Nair", department:"Design", due:"10 Jul 2026", status:"2d overdue" }, { tag:"AF-0088", asset:"Dell Latitude 7440", holder:"Arjun Mehta", department:"Operations", due:"11 Jul 2026", status:"1d overdue" }, { tag:"AF-0203", asset:"Canon EOS R6", holder:"Media Studio", department:"Marketing", due:"12 Jul 2026", status:"Due today" }];
-const activity = [{ icon:"AS", title:"Asset AF-0317 assigned", detail:"Neha Singh · 8 minutes ago", kind:"normal" }, { icon:"MR", title:"Maintenance request approved", detail:"AF-0092 · 24 minutes ago", kind:"normal" }, { icon:"BK", title:"Room Atlas booking confirmed", detail:"Finance · 41 minutes ago", kind:"normal" }, { icon:"!", title:"Transfer request submitted", detail:"AF-0114 · 1 hour ago", kind:"urgent" }];
+const stats = [
+  ["Available", "128"], ["Allocated", "96"], ["Bookable", "4"],
+  ["Active bookings", "9"], ["Pending transfers", "3"], ["Upcoming returns", "12"],
+];
+const activity = [
+  "Laptop AF-0114 allocated to Priya Shah · IT",
+  "Room B2 booking confirmed · 2:00 to 3:00 PM",
+  "Projector AF-0062 maintenance resolved",
+];
+
 export default function AssetFlow() {
-  const [signedIn, setSignedIn] = useState(() => typeof window !== "undefined" && currentUser() !== null);
-
-  if (!signedIn) {
-    return <LoginScreen onAuthenticated={() => setSignedIn(true)} />;
-  }
-
-  return <Dashboard />;
-}
-
-function Dashboard() {
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [reminded, setReminded] = useState<string[]>([]);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [commandOpen, setCommandOpen] = useState(false);
-  const filtered = useMemo(() => allocations.filter(x => `${x.tag} ${x.asset} ${x.holder}`.toLowerCase().includes(query.toLowerCase())), [query]);
-  useEffect(() => { const onKey = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setCommandOpen(true); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, []);
-  const toggle = (tag: string) => setSelected(value => value.includes(tag) ? value.filter(item => item !== tag) : [...value, tag]);
-  const remind = (tags: string[]) => { setReminded(value => [...new Set([...value, ...tags])]); setSelected([]); };
-  return <main className="app-shell shell-with-sidebar">
-    <AppSidebar />
-    <section className="content"><header className="topbar"><div><p className="eyebrow">Sunday, 12 July</p><h1>Overview</h1></div><div className="topbar-actions"><button className="search command-search" onClick={() => setCommandOpen(true)}><span>⌕</span><span>Search assets, people, tags…</span><kbd>⌘ K</kbd></button><button className="icon-button" aria-label="Notifications">●<span className="notification-ping" /></button><Link className="primary-button" href="/login">Open account</Link></div></header>
-      <section className="hero-row"><div><p className="eyebrow accent">Operational command center</p><h2>Good morning, Hiten.</h2><p>Here is what needs attention across your organization today.</p></div><div className="quick-actions"><button onClick={() => setCommandOpen(true)}>＋ Register asset</button><Link href="/bookings"><button>▣ Book resource</button></Link><Link href="/maintenance/new"><button>◇ Raise request</button></Link></div></section>
-      <section className="insight-banner"><span className="insight-icon">✦</span><div><strong>Predictive maintenance insight</strong><p>4 MacBooks are due for standard battery service next week based on usage patterns.</p></div><button className="text-button">Schedule now →</button></section>
-      <section className="kpi-grid" aria-label="Key performance indicators">{kpis.map(k => <article className={`kpi-card ${k[3]}`} key={k[0]}><div><span>{k[0]}</span><strong>{k[1]}</strong></div><small>{k[2]}</small></article>)}</section>
-      {selected.length > 0 && <div className="bulk-toolbar"><strong>{selected.length} selected</strong><button onClick={() => remind(selected)}>Send bulk reminder</button><button onClick={() => setSelected([])}>Clear</button></div>}
-      <section className="dashboard-grid"><article className="panel overdue-panel"><div className="panel-header"><div><p className="eyebrow danger">Action required</p><h3>Overdue allocations</h3></div><button className="text-button" onClick={() => remind(filtered.map(x => x.tag))}>Bulk remind →</button></div><div className="table-wrap"><table><thead><tr><th><input type="checkbox" aria-label="Select all overdue" checked={filtered.length > 0 && selected.length === filtered.length} onChange={() => setSelected(selected.length === filtered.length ? [] : filtered.map(x => x.tag))} /></th><th>Asset</th><th>Holder</th><th>Department</th><th>Expected return</th><th>Actions</th></tr></thead><tbody>{filtered.map(x => <tr key={x.tag}><td><input type="checkbox" aria-label={`Select ${x.asset}`} checked={selected.includes(x.tag)} onChange={() => toggle(x.tag)} /></td><td><strong>{x.asset}</strong><small>{x.tag}</small></td><td>{x.holder}</td><td><span className="pill">{x.department}</span></td><td><span className="due">{x.due}<small>{reminded.includes(x.tag) ? "Reminder sent" : x.status}</small></span></td><td><button className="row-action" onClick={() => remind([x.tag])}>Remind</button><button className="row-action" onClick={() => setReminded(value => value.filter(tag => tag !== x.tag))}>Extend</button></td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty-state"><span>✓</span><strong>All caught up!</strong><small>No overdue assets need your attention.</small></div>}</div></article>
-        <article className="panel activity-panel"><div className="panel-header"><div><p className="eyebrow">Live feed</p><h3>Recent activity</h3></div><button className="text-button">See log</button></div><div className="activity-list">{activity.map(x => <button className={`activity-item ${x.kind}`} key={x.title} onClick={() => setExpanded(expanded === x.title ? null : x.title)}><span className="activity-mark">{x.icon}</span><span><strong>{x.title}</strong><small>{x.detail}</small>{expanded === x.title && <em>Open the related request to review details →</em>}</span><b>{expanded === x.title ? "−" : "+"}</b></button>)}</div></article>
-        <article className="panel utilization-panel"><div className="panel-header"><div><p className="eyebrow">Portfolio health</p><h3>Asset utilization</h3></div><select aria-label="Utilization period"><option>Last 30 days</option><option>Last quarter</option></select></div><div className="utilization-body"><div className="donut"><span><strong>81%</strong><small>in use</small></span></div><div className="legend"><p><i className="legend-dot" />Allocated <strong>1,248</strong></p><p><i className="legend-dot available" />Available <strong>284</strong></p><p><i className="legend-dot maintenance" />Maintenance <strong>43</strong></p><small className="micro-insight">Design has 15% idle hardware; consider transferring to Marketing.</small></div></div></article>
-        <article className="panel schedule-panel"><div className="panel-header"><div><p className="eyebrow">Today</p><h3>Resource schedule</h3></div><Link className="text-button" href="/bookings">Calendar →</Link></div><div className="timeline"><div><time>09:00</time><span className="timeline-bar blue" /><p><strong>Room Atlas</strong><small>Product planning · 09:00–10:00</small></p></div><div><time>10:30</time><span className="timeline-bar violet" /><p><strong>Toyota Innova</strong><small>Client visit · 10:30–13:00</small></p></div><div><time>14:00</time><span className="timeline-bar amber" /><p><strong>Studio Camera Kit</strong><small>Campaign shoot · 14:00–17:30</small></p></div></div></article>
-      </section></section>
-      {commandOpen && <div className="command-overlay" role="dialog" aria-modal="true"><div className="command-modal"><input autoFocus placeholder="Type a command or search…" value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => event.key === "Escape" && setCommandOpen(false)} /><button onClick={() => setCommandOpen(false)}>Esc</button><div className="command-options"><Link href="/maintenance/new" onClick={() => setCommandOpen(false)}>◇ Raise maintenance request</Link><Link href="/bookings" onClick={() => setCommandOpen(false)}>▣ Book a shared resource</Link><button onClick={() => { setCommandOpen(false); document.documentElement.dataset.theme="dark"; localStorage.setItem("assetflow-theme","dark"); }}>☾ Switch to dark mode</button></div></div></div>}
-  </main>;
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => setSignedIn(currentUser() !== null), []);
+  if (signedIn === null) return <main className="session-loading">Opening workspace…</main>;
+  if (!signedIn) return <LoginScreen onAuthenticated={() => setSignedIn(true)} />;
+  return <main className="product-shell"><AppSidebar /><section className="product-content">
+    <header className="product-header"><div><p>Dashboard</p><h1>Today&apos;s overview</h1></div><span className="quiet-badge">Live workspace</span></header>
+    <section className="stat-grid">{stats.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</section>
+    <div className="notice danger">3 assets are overdue for return</div>
+    <section className="action-row"><Link className="button primary" href="/assets">Register asset</Link><Link className="button" href="/bookings">Book resource</Link><Link className="button" href="/maintenance/new">Raise request</Link></section>
+    <section className="clean-panel"><div className="panel-title"><h2>Recent activity</h2><Link href="/activity">View all</Link></div><div className="plain-list">{activity.map((item) => <div key={item}><span className="activity-dot" />{item}</div>)}</div></section>
+  </section></main>;
 }

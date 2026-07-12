@@ -1,5 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 
+const seed = [{ asset: "AF-003 · Dell laptop", expected: "Desk #12", result: "Verified" }, { asset: "AF-021 · Office chair", expected: "Desk #10", result: "Missing" }, { asset: "AF-033 · Monitor", expected: "Desk #15", result: "Damaged" }];
 export default function AuditsPage() {
-  return <FeatureShell title="Physical audits"><section className="metric-strip"><div><small>Quarterly verified</small><strong>74%</strong><span>1,133 of 1,532 assets</span></div><div><small>Open discrepancies</small><strong className="danger-text">18</strong><span>5 critical locations</span></div><div><small>Last scan</small><strong>12 min</strong><span>Floor 3 Lounge</span></div></section><section className="special-grid audit-grid"><article className="feature-panel scanner"><p className="eyebrow accent">Verification mode</p><h2>Scan an asset</h2><div className="scanner-frame"><span>⌁</span><small>Camera scanner ready</small></div><button className="primary-button wide">Start camera scanner</button><button className="secondary-button wide">Enter tag manually</button></article><article className="feature-panel"><div className="section-heading"><div><p className="eyebrow danger">Needs review</p><h2>Discrepancy report</h2></div><button className="text-button">Open drawer</button></div><div className="discrepancy"><strong>AF-0114 · MacBook Pro 14</strong><p>System says Room B2, but audit scanned Floor 3 Lounge.</p><span className="status-pill warning">Location mismatch</span></div><div className="discrepancy"><strong>AF-0203 · Canon EOS R6</strong><p>Asset tag is damaged and requires replacement.</p><span className="status-pill warning">Tag unreadable</span></div></article><article className="feature-panel audit-ring"><p className="eyebrow accent">Quarterly progress</p><div className="progress-ring"><strong>74%</strong><small>verified</small></div><p>Target completion: 30 Sep 2026</p></article></section></FeatureShell>;
+  const [rows, setRows] = useState(seed);
+  const [closed, setClosed] = useState(false);
+  return <FeatureShell title="Asset audit">
+    <div className="notice">Q3 audit · Engineering dept · 1–15 Jul · Auditors: A. Rani, S. Iqbal</div>
+    <section className="clean-panel table-panel"><table className="clean-table"><thead><tr><th>Asset</th><th>Expected location</th><th>Verification</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.asset}><td><strong>{row.asset}</strong></td><td>{row.expected}</td><td><select value={row.result} onChange={(e) => setRows(rows.map((item, i) => i === index ? { ...item, result: e.target.value } : item))}><option>Verified</option><option>Missing</option><option>Damaged</option></select></td></tr>)}</tbody></table></section>
+    <div className="notice warning">{rows.filter((row) => row.result !== "Verified").length} assets flagged · discrepancy report updates automatically.</div>
+    <button className="button primary" onClick={() => setClosed(true)}>Close audit cycle</button>{closed && <span className="success-inline">Audit cycle closed.</span>}
+  </FeatureShell>;
 }

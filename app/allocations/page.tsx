@@ -1,5 +1,15 @@
+"use client";
+
+import { useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 
 export default function AllocationsPage() {
-  return <FeatureShell title="Custody tracker"><section className="metric-strip"><div><small>Active custody</small><strong>1,248</strong><span>81% of portfolio</span></div><div><small>Late returns</small><strong className="danger-text">24</strong><span>8 require escalation</span></div><div><small>Hoarding score</small><strong>18%</strong><span>Down 3% this month</span></div></section><section className="feature-panel"><div className="section-heading"><div><p className="eyebrow accent">Custody ledger</p><h2>Hand-off history</h2></div><button className="primary-button">Bulk remind</button></div><table className="data-table"><thead><tr><th>Asset</th><th>Current holder</th><th>Previous hand-off</th><th>Return health</th><th /></tr></thead><tbody><tr><td><strong>MacBook Pro 14</strong><small>AF-0114</small></td><td>Priya Nair · Design</td><td>Signed by Arjun Mehta<br /><small>18 Feb 2026</small></td><td><span className="status-pill warning">2d overdue</span></td><td><button className="text-button">Remind</button></td></tr><tr><td><strong>Dell Latitude 7440</strong><small>AF-0088</small></td><td>Arjun Mehta · Operations</td><td>Signed by Neha Singh<br /><small>02 Mar 2026</small></td><td><span className="status-pill">On track</span></td><td><button className="text-button">History</button></td></tr></tbody></table></section></FeatureShell>;
+  const [employee, setEmployee] = useState("Priya Shah");
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("This asset is already allocated to Priya Shah (Engineering). Submit a transfer request instead.");
+  function submit() { if (!reason.trim()) { setMessage("Add a reason before submitting the transfer."); return; } setMessage(`Transfer request sent to ${employee}.`); }
+  return <FeatureShell title="Allocation & transfer">
+    <section className="form-layout"><article className="clean-panel compact-form"><label>Asset<input value="AF-0114 · Dell laptop" readOnly /></label><div className="notice danger">Already allocated to Priya Shah · direct re-allocation is blocked.</div><div className="two-fields"><label>From<input value="Priya Shah" readOnly /></label><label>Transfer to<select value={employee} onChange={(e) => setEmployee(e.target.value)}><option>Arjun Mehta</option><option>Neha Singh</option><option>Priya Shah</option></select></label></div><label>Reason<textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4} placeholder="Why is this asset being transferred?" /></label><button className="button primary" onClick={submit}>Submit request</button><p className="form-status" role="status">{message}</p></article>
+    <aside className="clean-panel"><h2>Allocation history</h2><div className="plain-list"><div><strong>12 Mar</strong> Allocated to Priya Shah · Engineering</div><div><strong>04 Jan</strong> Returned by Arjun Mehta · condition good</div></div></aside></section>
+  </FeatureShell>;
 }

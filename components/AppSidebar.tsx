@@ -22,7 +22,7 @@ export function AppSidebar() {
   }, [dark]);
 
   const isCurrent = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
-  const renderLink = ({ label, href, icon: Icon }: (typeof primary)[number]) => <Link className={`sidebar-link${isCurrent(href) ? " is-current" : ""}`} href={href} key={href} aria-current={isCurrent(href) ? "page" : undefined}><Icon size={18} strokeWidth={1.8}/><span>{label}</span></Link>;
+  const renderLink = ({ label, href, icon: Icon }: (typeof primary)[number]) => <Link className={`sidebar-link${isCurrent(href) ? " is-current" : ""}`} href={href} key={href} aria-label={label} title={label} aria-current={isCurrent(href) ? "page" : undefined}><Icon size={18} strokeWidth={1.8}/><span>{label}</span></Link>;
   const initials = user?.name.split(" ").map((part) => part[0]).join("").slice(0, 2) ?? "HK";
 
   function toggleTheme() {

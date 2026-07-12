@@ -1,5 +1,24 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 
+const seed = [
+  { tag: "AF-0012", name: "Dell Laptop", category: "Electronics", status: "Allocated", location: "Bengaluru" },
+  { tag: "AF-0062", name: "Projector", category: "Electronics", status: "Maintenance", location: "HQ Floor 2" },
+  { tag: "AF-0201", name: "Office chair", category: "Furniture", status: "Available", location: "Warehouse" },
+];
+
 export default function AssetsPage() {
-  return <FeatureShell title="Asset registry"><section className="metric-strip"><div><small>Total assets</small><strong>1,532</strong><span>+4.8% this quarter</span></div><div><small>Book value</small><strong>₹4.8Cr</strong><span>₹18.2L depreciated</span></div><div><small>Compliance</small><strong>96.4%</strong><span>18 records need review</span></div></section><section className="special-grid"><article className="feature-panel"><div className="section-heading"><div><p className="eyebrow accent">Lifecycle</p><h2>Portfolio lifecycle</h2></div><button className="text-button">View policy →</button></div><div className="lifecycle"><span className="complete">Procured</span><i /><span className="complete">Deployed</span><i /><span className="active">In repair</span><i /><span>Depreciated</span></div><div className="lifecycle-stats"><b>1,532 <small>procured</small></b><b>1,248 <small>deployed</small></b><b>43 <small>in repair</small></b><b>241 <small>depreciated</small></b></div></article><article className="feature-panel depreciation"><p className="eyebrow accent">Finance</p><h2>Depreciation calculator</h2><p>Straight-line tax write-off progress across active hardware.</p><div className="depreciation-ring"><strong>63%</strong><small>claimed</small></div><div className="split-stat"><span>Annual write-off <b>₹18.2L</b></span><span>Next milestone <b>31 Mar 2027</b></span></div></article><article className="feature-panel importer"><p className="eyebrow accent">Batch operations</p><h2>Import assets</h2><p>Upload CSV or JSON to register hundreds of assets at once.</p><div className="drop-zone">＋<strong>Drop files here</strong><small>CSV or JSON · up to 25 MB</small><button className="primary-button">Choose file</button></div></article></section></FeatureShell>;
+  const [assets, setAssets] = useState(seed);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("All");
+  const [adding, setAdding] = useState(false);
+  const visible = useMemo(() => assets.filter((asset) => (status === "All" || asset.status === status) && `${asset.tag} ${asset.name} ${asset.category}`.toLowerCase().includes(query.toLowerCase())), [assets, query, status]);
+  function addAsset() { setAssets([...assets, { tag: `AF-${String(assets.length + 220).padStart(4, "0")}`, name: "New asset", category: "Equipment", status: "Available", location: "HQ" }]); setAdding(false); }
+  return <FeatureShell title="Assets" actions={<button className="button primary" onClick={() => setAdding(true)}>Register asset</button>}>
+    <section className="toolbar"><input aria-label="Search assets" placeholder="Search by tag, serial, or QR code" value={query} onChange={(e) => setQuery(e.target.value)} /><select aria-label="Status filter" value={status} onChange={(e) => setStatus(e.target.value)}><option>All</option><option>Available</option><option>Allocated</option><option>Maintenance</option></select></section>
+    {adding && <section className="inline-form"><strong>Register a new asset?</strong><span>A clean placeholder record will be added for editing.</span><button className="button primary" onClick={addAsset}>Confirm</button><button className="button" onClick={() => setAdding(false)}>Cancel</button></section>}
+    <section className="clean-panel table-panel"><table className="clean-table"><thead><tr><th>Tag</th><th>Asset</th><th>Category</th><th>Status</th><th>Location</th></tr></thead><tbody>{visible.map((asset) => <tr key={asset.tag}><td>{asset.tag}</td><td><strong>{asset.name}</strong></td><td>{asset.category}</td><td><span className={`status ${asset.status.toLowerCase()}`}>{asset.status}</span></td><td>{asset.location}</td></tr>)}</tbody></table>{visible.length === 0 && <p className="empty-copy">No assets match these filters.</p>}</section>
+  </FeatureShell>;
 }
