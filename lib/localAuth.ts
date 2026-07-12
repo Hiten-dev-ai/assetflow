@@ -40,7 +40,7 @@ function hashPassword(password: string) {
 function cleanName(name: string, username: string) {
   const trimmed = name.trim();
   if (trimmed) return trimmed;
-  return username.split("@")[0]?.replace(/[._-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) || "AssetFlow User";
+  return username.split("@")[0]?.replace(/[._-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Asset Flow User";
 }
 
 function readRawUsers(): StoredUser[] {
@@ -101,13 +101,12 @@ export function signUp(name: string, username: string, password: string): LocalU
   };
 
   writeUsers([...users, user]);
-  localStorage.setItem(SESSION_KEY, user.id);
   return user;
 }
 
 export function signIn(username: string, password: string): LocalUser {
   const users = readUsers();
-  if (users.length === 0) throw new Error("Create your first AssetFlow account to continue.");
+  if (users.length === 0) throw new Error("Create your first Asset Flow account to continue.");
 
   const normalizedUsername = normalizeUsername(username);
   const passwordHash = hashPassword(password);

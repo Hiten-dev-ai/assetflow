@@ -1,8 +1,9 @@
 "use client";
 
 import { CheckCircle2, Eye, FileText, Plus, Search, Upload, X } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
+import { recordActivity } from "../../lib/activityLog";
 
 type LifecycleStatus = "Available" | "Allocated" | "Reserved" | "Under Maintenance" | "Lost" | "Retired" | "Disposed";
 type AssetCondition = "Excellent" | "Good" | "Fair" | "Needs Service" | "Damaged";
@@ -255,6 +256,12 @@ export default function AssetsPage() {
   }, [assets, filters, query]);
 
   const selectedAsset = assets.find((asset) => asset.tag === selectedTag) ?? null;
+  const dialogOpen = creating || Boolean(selectedAsset);
+
+  useEffect(() => {
+    document.body.classList.toggle("assetflow-dialog-open", dialogOpen);
+    return () => document.body.classList.remove("assetflow-dialog-open");
+  }, [dialogOpen]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -321,6 +328,14 @@ export default function AssetsPage() {
     setSelectedTag(tag);
     setCreating(false);
     setToast(`${tag} was added to the asset directory.`);
+    recordActivity({
+      kind: "Asset",
+      title: `${tag} registered`,
+      description: `${newAsset.name} added to ${newAsset.department}.`,
+      actor: "Asset registry",
+      target: tag,
+      severity: "Success",
+    });
   }
 
   return <FeatureShell title="Assets" actions={<button className="button primary" onClick={openCreateModal}><Plus size={15} />New Asset</button>}>

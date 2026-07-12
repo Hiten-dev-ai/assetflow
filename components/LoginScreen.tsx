@@ -21,9 +21,20 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
     setSuccess(false);
 
     try {
-      const user = mode === "login" ? signIn(username, password) : signUp(name, username, password);
+      if (mode === "signup") {
+        const user = signUp(name, username, password);
+        setSuccess(true);
+        setMode("login");
+        setUsername(user.username);
+        setName("");
+        setPassword("");
+        setMessage(`Account created. Sign in as ${user.username}.`);
+        return;
+      }
+
+      const user = signIn(username, password);
       setSuccess(true);
-      setMessage(mode === "login" ? `Welcome back, ${user.name}.` : `Account created for ${user.name}.`);
+      setMessage(`Welcome back, ${user.name}.`);
       if (onAuthenticated) {
         onAuthenticated();
       } else {
@@ -42,24 +53,24 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   }
 
   return <main className="login-page">
-    <section className="login-card" aria-label="Assets Flow authentication">
+    <section className="login-card" aria-label="Asset Flow authentication">
       <div className="login-card-brand">
         <span>AF</span>
         <div>
-          <p>Assets Flow</p>
-          <small>Enterprise asset operations</small>
+          <p>Asset Flow</p>
+          <small>Asset operations</small>
         </div>
       </div>
 
       <div className="login-card-heading">
         <p>{mode === "login" ? "Secure sign in" : "Create account"}</p>
-        <h1>{mode === "login" ? "Welcome back" : "Start your workspace"}</h1>
+        <h1>{mode === "login" ? "Access workspace" : "Create your account"}</h1>
       </div>
 
       <form className="login-form" onSubmit={submit}>
         {mode === "signup" && <label>
           <span>Full name</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Hiten Kumar" autoComplete="name" />
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" />
         </label>}
         <label>
           <span>Username</span>
@@ -67,16 +78,16 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         </label>
         <label>
           <span>Password</span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimum 8 characters" autoComplete={mode === "login" ? "current-password" : "new-password"} required />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="8+ characters" autoComplete={mode === "login" ? "current-password" : "new-password"} required />
         </label>
 
-        <button className="login-submit" type="submit">{mode === "login" ? "Login" : "Create account"}</button>
+        <button className="login-submit" type="submit">{mode === "login" ? "Sign in" : "Create account"}</button>
         {message && <p className={success ? "login-message success" : "login-message"} role="status">{message}</p>}
       </form>
 
       <p className="login-switch">
         {mode === "login" ? "No account yet?" : "Already have an account?"}
-        <button type="button" onClick={switchMode}>{mode === "login" ? "Create one" : "Sign in"}</button>
+        <button type="button" onClick={switchMode}>{mode === "login" ? "Create account" : "Sign in"}</button>
       </p>
     </section>
   </main>;

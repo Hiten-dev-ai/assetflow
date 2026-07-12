@@ -35,7 +35,7 @@ export function AppSidebar() {
     <div className="sidebar-top">
       <Link className="sidebar-brand" href="/">
         <span className="sidebar-logo">AF</span>
-        <strong>AssetFlow</strong>
+        <strong>Asset Flow</strong>
       </Link>
     </div>
     <nav className="sidebar-primary" aria-label="Primary navigation">{primary.map(renderLink)}</nav>

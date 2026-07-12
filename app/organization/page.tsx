@@ -3,6 +3,7 @@
 import { CheckCircle2, Pencil, Plus, RotateCcw, Search, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
+import { recordActivity } from "../../lib/activityLog";
 
 type EntityStatus = "Active" | "Inactive";
 type OrganizationTab = "Departments" | "Asset Categories" | "Employees";
@@ -376,6 +377,14 @@ export default function OrganizationPage() {
 
     setDepartments((current) => editId ? current.map((department) => department.id === editId ? nextRecord : department) : [...current, nextRecord]);
     setToast(`${name} ${editId ? "updated" : "added"}.`);
+    recordActivity({
+      kind: "Organization",
+      title: `Department ${editId ? "updated" : "added"}`,
+      description: `${name} (${code})`,
+      actor: "Organization setup",
+      target: code,
+      severity: "Success",
+    });
     closeModal();
   }
 
@@ -413,6 +422,14 @@ export default function OrganizationPage() {
 
     setCategories((current) => editId ? current.map((category) => category.id === editId ? nextRecord : category) : [...current, nextRecord]);
     setToast(`${name} ${editId ? "updated" : "added"}.`);
+    recordActivity({
+      kind: "Organization",
+      title: `Category ${editId ? "updated" : "added"}`,
+      description: `${name} (${code})`,
+      actor: "Organization setup",
+      target: code,
+      severity: "Success",
+    });
     closeModal();
   }
 
@@ -468,22 +485,62 @@ export default function OrganizationPage() {
 
     setEmployees((current) => editId ? current.map((employee) => employee.id === editId ? nextRecord : employee) : [...current, nextRecord]);
     setToast(`${name} ${editId ? "updated" : "added"}.`);
+    recordActivity({
+      kind: "Organization",
+      title: `Employee ${editId ? "updated" : "added"}`,
+      description: `${name} assigned as ${employeeForm.role}.`,
+      actor: "Organization setup",
+      target: employeeId,
+      severity: "Success",
+    });
     closeModal();
   }
 
   function toggleDepartmentStatus(id: string) {
+    const department = departments.find((item) => item.id === id);
     setDepartments((current) => current.map((department) => department.id === id ? { ...department, status: department.status === "Active" ? "Inactive" : "Active" } : department));
+    if (department) recordActivity({
+      kind: "Organization",
+      title: `Department ${department.status === "Active" ? "deactivated" : "reactivated"}`,
+      description: department.name,
+      actor: "Organization setup",
+      target: department.code,
+      severity: "Info",
+    });
   }
 
   function toggleCategoryStatus(id: string) {
+    const category = categories.find((item) => item.id === id);
     setCategories((current) => current.map((category) => category.id === id ? { ...category, status: category.status === "Active" ? "Inactive" : "Active" } : category));
+    if (category) recordActivity({
+      kind: "Organization",
+      title: `Category ${category.status === "Active" ? "deactivated" : "reactivated"}`,
+      description: category.name,
+      actor: "Organization setup",
+      target: category.code,
+      severity: "Info",
+    });
   }
 
   function toggleEmployeeStatus(id: string) {
+    const employee = employees.find((item) => item.id === id);
     setEmployees((current) => current.map((employee) => employee.id === id ? { ...employee, status: employee.status === "Active" ? "Inactive" : "Active" } : employee));
+    if (employee) recordActivity({
+      kind: "Organization",
+      title: `Employee ${employee.status === "Active" ? "deactivated" : "reactivated"}`,
+      description: employee.name,
+      actor: "Organization setup",
+      target: employee.employeeId,
+      severity: "Info",
+    });
   }
 
   const isModalOpen = editingDepartmentId !== null || editingCategoryId !== null || editingEmployeeId !== null;
+
+  useEffect(() => {
+    document.body.classList.toggle("assetflow-dialog-open", isModalOpen);
+    return () => document.body.classList.remove("assetflow-dialog-open");
+  }, [isModalOpen]);
 
   return <FeatureShell title="Organization Setup" actions={<button className="button primary" type="button" onClick={openCreate}><Plus size={15} />Add {activeTab === "Asset Categories" ? "Category" : activeTab.slice(0, -1)}</button>}>
     <div className="tabs organization-tabs" role="tablist" aria-label="Organization setup sections">

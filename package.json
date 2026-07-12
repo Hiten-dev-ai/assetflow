@@ -11,7 +11,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "test": "npm run test:features && npm run build",
     "test:features": "node --experimental-strip-types --test tests/booking-maintenance.test.ts",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

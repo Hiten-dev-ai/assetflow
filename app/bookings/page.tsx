@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 import { Booking, BookingRuleError, cancelBooking, createBooking, rescheduleBooking } from "../../features/bookings/service";
+import { recordActivity } from "../../lib/activityLog";
 
 const assets = [{ id: 1, name: "Room B2", shared: true }, { id: 2, name: "Room Atlas", shared: true }, { id: 3, name: "Finance Laptop", shared: false }];
 const base = "2026-07-13";
@@ -24,14 +25,43 @@ export default function BookingsPage() {
   function submit() {
     try {
       const next = createBooking(asset, { assetId, employeeId: 7, startAt: at(start), endAt: at(end), purpose }, bookings);
-      setBookings([...bookings, next]); setMessage("Booking confirmed.");
+      setBookings([...bookings, next]);
+      setMessage("Booking confirmed.");
+      recordActivity({
+        kind: "Booking",
+        title: "Booking confirmed",
+        description: `${asset.name} reserved from ${start} to ${end}.`,
+        actor: "Bookings",
+        target: asset.name,
+        severity: "Success",
+      });
     } catch (error) { setMessage(error instanceof BookingRuleError ? error.message : "Could not create booking."); }
   }
-  function cancel(item: Booking) { setBookings(bookings.map((booking) => booking.id === item.id ? cancelBooking(booking) : booking)); }
+  function cancel(item: Booking) {
+    setBookings(bookings.map((booking) => booking.id === item.id ? cancelBooking(booking) : booking));
+    setMessage("Booking cancelled.");
+    recordActivity({
+      kind: "Booking",
+      title: "Booking cancelled",
+      description: `${item.purpose} was cancelled.`,
+      actor: "Bookings",
+      target: asset.name,
+      severity: "Info",
+    });
+  }
   function move(item: Booking) {
     try {
       const moved = rescheduleBooking(asset, item, new Date(item.startAt.getTime() + 60 * 60 * 1000), new Date(item.endAt.getTime() + 60 * 60 * 1000), bookings);
-      setBookings(bookings.map((booking) => booking.id === item.id ? moved : booking)); setMessage("Booking moved one hour later.");
+      setBookings(bookings.map((booking) => booking.id === item.id ? moved : booking));
+      setMessage("Booking moved one hour later.");
+      recordActivity({
+        kind: "Booking",
+        title: "Booking rescheduled",
+        description: `${item.purpose} moved one hour later.`,
+        actor: "Bookings",
+        target: asset.name,
+        severity: "Info",
+      });
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not reschedule."); }
   }
   return <FeatureShell title="Shared-resource bookings" actions={<div className="segmented"><button className={view === "day" ? "selected" : ""} onClick={() => setView("day")}>Day</button><button className={view === "week" ? "selected" : ""} onClick={() => setView("week")}>Week</button></div>}>
