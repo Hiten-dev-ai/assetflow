@@ -1,16 +1,16 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const departments = sqliteTable("departments", {
-  id: integer("id").primaryKey({ autoIncrement: true }), name: text("name").notNull(),
+  id: integer("id").primaryKey({ autoIncrement: true }), name: text("name").notNull(), code:text("code"), notes:text("notes"),
   parentId: integer("parent_id"), headEmployeeId: integer("head_employee_id"), active: integer("active",{mode:"boolean"}).notNull().default(true),
 });
 export const employees = sqliteTable("employees", {
-  id: integer("id").primaryKey({autoIncrement:true}), name:text("name").notNull(), email:text("email").notNull(),
+  id: integer("id").primaryKey({autoIncrement:true}), name:text("name").notNull(), email:text("email").notNull(), employeeId:text("employee_id"), jobTitle:text("job_title"), phone:text("phone"), location:text("location"),
   departmentId:integer("department_id").references(()=>departments.id), role:text("role",{enum:["ADMIN","ASSET_MANAGER","DEPARTMENT_HEAD","EMPLOYEE","TECHNICIAN"]}).notNull().default("EMPLOYEE"),
   status:text("status",{enum:["ACTIVE","INACTIVE"]}).notNull().default("ACTIVE"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 }, table=>[uniqueIndex("employees_email_unique").on(table.email)]);
 export const assetCategories = sqliteTable("asset_categories", {
-  id:integer("id").primaryKey({autoIncrement:true}), name:text("name").notNull(), customFields:text("custom_fields",{mode:"json"}), active:integer("active",{mode:"boolean"}).notNull().default(true),
+  id:integer("id").primaryKey({autoIncrement:true}), name:text("name").notNull(), code:text("code"), description:text("description"), usefulLife:text("useful_life"), requiresSerial:integer("requires_serial",{mode:"boolean"}).notNull().default(true), trackWarranty:integer("track_warranty",{mode:"boolean"}).notNull().default(false), customFields:text("custom_fields",{mode:"json"}), active:integer("active",{mode:"boolean"}).notNull().default(true),
 });
 export const assets = sqliteTable("assets", {
   id:integer("id").primaryKey({autoIncrement:true}), tag:text("tag").notNull(), name:text("name").notNull(), categoryId:integer("category_id").notNull().references(()=>assetCategories.id),
@@ -23,13 +23,14 @@ export const assetProfiles = sqliteTable("asset_profiles", {
 }, table=>[index("asset_profiles_department_idx").on(table.department)]);
 export const allocations = sqliteTable("allocations", {
   id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), employeeId:integer("employee_id").references(()=>employees.id), departmentId:integer("department_id").references(()=>departments.id),
-  expectedReturnAt:integer("expected_return_at",{mode:"timestamp"}), returnedAt:integer("returned_at",{mode:"timestamp"}), checkInNotes:text("check_in_notes"), status:text("status",{enum:["ACTIVE","RETURNED","TRANSFERRED"]}).notNull().default("ACTIVE"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
+  expectedReturnAt:integer("expected_return_at",{mode:"timestamp"}), returnedAt:integer("returned_at",{mode:"timestamp"}), checkInNotes:text("check_in_notes"), requestedToEmployeeId:integer("requested_to_employee_id").references(()=>employees.id),
+  reason:text("reason"), conditionOut:text("condition_out"), conditionIn:text("condition_in"), notes:text("notes"), status:text("status",{enum:["ACTIVE","RETURNED","TRANSFERRED","TRANSFER_PENDING"]}).notNull().default("ACTIVE"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 });
 export const bookings = sqliteTable("bookings", {
-  id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), employeeId:integer("employee_id").notNull().references(()=>employees.id), startAt:integer("start_at",{mode:"timestamp"}).notNull(), endAt:integer("end_at",{mode:"timestamp"}).notNull(), purpose:text("purpose"), status:text("status",{enum:["UPCOMING","ONGOING","COMPLETED","CANCELLED"]}).notNull().default("UPCOMING"),
+  id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), employeeId:integer("employee_id").notNull().references(()=>employees.id), startAt:integer("start_at",{mode:"timestamp"}).notNull(), endAt:integer("end_at",{mode:"timestamp"}).notNull(), purpose:text("purpose"), status:text("status",{enum:["UPCOMING","ONGOING","COMPLETED","CANCELLED"]}).notNull().default("UPCOMING"), createdAt:integer("created_at",{mode:"timestamp"}),
 });
 export const maintenanceRequests = sqliteTable("maintenance_requests", {
-  id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), requestedBy:integer("requested_by").notNull().references(()=>employees.id), description:text("description").notNull(), priority:text("priority",{enum:["LOW","MEDIUM","HIGH","CRITICAL"]}).notNull().default("MEDIUM"), status:text("status",{enum:["PENDING","APPROVED","REJECTED","TECHNICIAN_ASSIGNED","IN_PROGRESS","RESOLVED"]}).notNull().default("PENDING"), technician:text("technician"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(), updatedAt:integer("updated_at",{mode:"timestamp"}), resolvedAt:integer("resolved_at",{mode:"timestamp"}),
+  id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), requestedBy:integer("requested_by").notNull().references(()=>employees.id), description:text("description").notNull(), priority:text("priority",{enum:["LOW","MEDIUM","HIGH","CRITICAL"]}).notNull().default("MEDIUM"), status:text("status",{enum:["PENDING","APPROVED","REJECTED","TECHNICIAN_ASSIGNED","IN_PROGRESS","RESOLVED"]}).notNull().default("PENDING"), technician:text("technician"), attachmentName:text("attachment_name"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(), updatedAt:integer("updated_at",{mode:"timestamp"}), resolvedAt:integer("resolved_at",{mode:"timestamp"}),
 }, table=>[
   index("maintenance_requests_status_idx").on(table.status),
   index("maintenance_requests_asset_status_idx").on(table.assetId, table.status),
@@ -38,7 +39,36 @@ export const notifications = sqliteTable("notifications", {
   id:integer("id").primaryKey({autoIncrement:true}), employeeId:integer("employee_id").notNull().references(()=>employees.id), type:text("type").notNull(), title:text("title").notNull(), body:text("body"), readAt:integer("read_at",{mode:"timestamp"}), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 });
 export const activityLogs = sqliteTable("activity_logs", {
-  id:integer("id").primaryKey({autoIncrement:true}), actorId:integer("actor_id").references(()=>employees.id), action:text("action").notNull(), entityType:text("entity_type").notNull(), entityId:text("entity_id").notNull(), metadata:text("metadata",{mode:"json"}), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
+  id:integer("id").primaryKey({autoIncrement:true}), actorId:integer("actor_id").references(()=>employees.id), action:text("action").notNull(), entityType:text("entity_type").notNull(), entityId:text("entity_id").notNull(), metadata:text("metadata",{mode:"json"}),
+  kind:text("kind"), title:text("title"), description:text("description"), target:text("target"), severity:text("severity"), status:text("status"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
+});
+
+export const users = sqliteTable("users", {
+  id:text("id").primaryKey(),
+  employeeId:integer("employee_id").notNull().references(()=>employees.id),
+  email:text("email").notNull(),
+  passwordHash:text("password_hash").notNull(),
+  createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
+}, table=>[uniqueIndex("users_email_unique").on(table.email)]);
+
+export const sessions = sqliteTable("sessions", {
+  id:text("id").primaryKey(),
+  userId:text("user_id").notNull().references(()=>users.id),
+  createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
+  expiresAt:integer("expires_at",{mode:"timestamp"}).notNull(),
+});
+
+export const transferRequests = sqliteTable("transfer_requests", {
+  id:text("id").primaryKey(),
+  allocationId:integer("allocation_id").notNull().references(()=>allocations.id),
+  assetId:integer("asset_id").notNull().references(()=>assets.id),
+  fromEmployeeId:integer("from_employee_id").notNull().references(()=>employees.id),
+  toEmployeeId:integer("to_employee_id").notNull().references(()=>employees.id),
+  reason:text("reason").notNull(),
+  status:text("status",{enum:["REQUESTED","APPROVED","REJECTED"]}).notNull().default("REQUESTED"),
+  requestedAt:integer("requested_at",{mode:"timestamp"}).notNull(),
+  decidedAt:integer("decided_at",{mode:"timestamp"}),
+  decidedBy:integer("decided_by").references(()=>employees.id),
 });
 export const maintenanceAssignments = sqliteTable("maintenance_assignments", {
   id:integer("id").primaryKey({autoIncrement:true}), requestId:integer("request_id").notNull().references(()=>maintenanceRequests.id),

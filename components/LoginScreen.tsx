@@ -15,7 +15,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setSuccess(false);
@@ -32,7 +32,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         return;
       }
 
-      const user = signIn(username, password);
+      const user = await signIn(username, password);
       setSuccess(true);
       setMessage(`Welcome back, ${user.name}.`);
       if (onAuthenticated) {
@@ -73,8 +73,8 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" />
         </label>}
         <label>
-          <span>Username</span>
-          <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="name@company.com" autoComplete="username" required />
+        <span>Email</span>
+        <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="name@company.com" autoComplete="username" required />
         </label>
         <label>
           <span>Password</span>
@@ -89,6 +89,7 @@ export function LoginScreen({ onAuthenticated }: LoginScreenProps) {
         {mode === "login" ? "No account yet?" : "Already have an account?"}
         <button type="button" onClick={switchMode}>{mode === "login" ? "Create account" : "Sign in"}</button>
       </p>
+      {mode === "login" && <p className="login-demo-note">Team accounts use password Assetflow@123.</p>}
     </section>
   </main>;
 }

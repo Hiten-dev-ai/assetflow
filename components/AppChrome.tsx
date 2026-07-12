@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AppSidebar } from "./AppSidebar";
-import { currentUser } from "../lib/localAuth";
+import { refreshCurrentUser } from "../lib/localAuth";
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -13,13 +13,14 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const [authorized, setAuthorized] = useState(isLoginRoute);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const timer = window.setTimeout(async () => {
       if (isLoginRoute) {
         setAuthorized(true);
         return;
       }
 
-      if (!currentUser()) {
+      const user = await refreshCurrentUser();
+      if (!user) {
         setAuthorized(false);
         router.replace("/login");
         return;

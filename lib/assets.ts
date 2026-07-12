@@ -55,6 +55,7 @@ export type AssetDraft = {
   location: string;
   shared: boolean;
   notes: string;
+  status?: LifecycleStatus;
 };
 
 export const categories = ["Laptop", "Projector", "Furniture", "Vehicle", "Room", "Shared Lab Kit", "Equipment"];

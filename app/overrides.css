@@ -164,14 +164,6 @@ input[type="checkbox"] { accent-color: #0b7048; width: 16px; height: 16px; curso
 .access-card { width: min(510px, 100%); }
 .access-heading h2 { margin-bottom: 10px; font-size: 35px; letter-spacing: -.045em; }
 .access-heading > p:last-child { margin: 0 0 28px; color: #698075; font-size: 14px; line-height: 1.6; }
-.demo-list { display: grid; gap: 9px; margin-bottom: 24px; }
-.demo-account { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 11px; width: 100%; padding: 10px 12px; border: 1px solid #c9ddd0; border-radius: 13px; background: rgba(255, 255, 255, .72); color: #17382a; text-align: left; cursor: pointer; transition: border-color 170ms ease, background 170ms ease, transform 170ms ease, box-shadow 170ms ease; }
-.demo-account:hover, .demo-account.selected { border-color: #47ad73; background: #fff; box-shadow: 0 8px 18px rgba(16, 87, 52, .1); transform: translateY(-1px); }
-.demo-avatar { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 12px; background: #daf3e3; color: #075c3c; font-size: 12px; font-weight: 850; }
-.demo-account strong, .demo-account small { display: block; }
-.demo-account strong { font-size: 13px; }
-.demo-account small { margin-top: 3px; color: #789085; font-size: 10px; }
-.demo-account i { color: #337557; font-size: 10px; font-style: normal; font-weight: 750; }
 .login-form { display: grid; gap: 16px; }
 .login-form > label > span { display: block; margin-bottom: 7px; color: #315244; font-size: 11px; font-weight: 800; }
 .login-form input[type="email"], .login-form input[type="password"] { width: 100%; min-height: 49px; padding: 0 14px; border: 1px solid #c6d9cd; border-radius: 11px; background: #fff; color: #102d20; outline: 0; transition: border-color 170ms ease, box-shadow 170ms ease; }
@@ -188,7 +180,6 @@ input[type="checkbox"] { accent-color: #0b7048; width: 16px; height: 16px; curso
 .login-submit span { color: #95f1bb; font-size: 18px; line-height: 1; }
 .login-message { min-height: 17px; margin: -6px 0 0; color: #b23c43; font-size: 11px; }
 .login-message.success { color: #147548; }
-.demo-hint { margin: 22px 0 0; color: #71897d; font-size: 11px; line-height: 1.6; }
 
 @media (max-width: 880px) {
   .login-page { grid-template-columns: 1fr; }

@@ -4,7 +4,6 @@ import { CheckCircle2, Eye, FileText, Plus, Search, Upload, X } from "lucide-rea
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 import { recordActivity } from "../../lib/activityLog";
-import { readAssetCategories, readDepartments } from "../../lib/organizationDirectory";
 import {
   type AssetCondition,
   type AssetDraft,
@@ -41,8 +40,8 @@ export default function AssetsPage() {
   const [creating, setCreating] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [editingTag, setEditingTag] = useState<string | null>(null);
-  const [masterCategories] = useState(() => readAssetCategories().filter((category) => category.status === "Active").map((category) => category.name));
-  const [masterDepartments] = useState(() => readDepartments().filter((department) => department.status === "Active").map((department) => department.name));
+  const [masterCategories, setMasterCategories] = useState<string[]>([]);
+  const [masterDepartments, setMasterDepartments] = useState<string[]>([]);
 
   const filterOptions = useMemo(() => ({
     categories: unique([...categories, ...masterCategories, ...assets.map((asset) => asset.category)]),
@@ -79,6 +78,19 @@ export default function AssetsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAssets();
   }, [loadAssets]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/organization", { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : Promise.reject(new Error("Unable to load organization data.")))
+      .then((payload: { categories?: Array<{ name: string; status: string }>; departments?: Array<{ name: string; status: string }> }) => {
+        if (!active) return;
+        setMasterCategories((payload.categories ?? []).filter((category) => category.status === "Active").map((category) => category.name));
+        setMasterDepartments((payload.departments ?? []).filter((department) => department.status === "Active").map((department) => department.name));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   const visibleAssets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -315,7 +327,7 @@ export default function AssetsPage() {
           <label><span>Location</span><input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="Bengaluru HQ" list="asset-locations" required /></label>
           <label className="asset-toggle"><input type="checkbox" checked={form.shared} onChange={(event) => setForm({ ...form, shared: event.target.checked })} /><span>Shared / bookable resource</span></label>
           <label className="asset-notes"><span>Notes</span><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Lifecycle notes, warranty details, accessories, ownership context" /></label>
-          <div className="asset-upload-placeholder"><Upload size={17} /><strong>Photo or documents</strong><span>Placeholder for asset photos, invoices, warranty files, or QR labels.</span></div>
+          <div className="asset-upload-placeholder"><Upload size={17} /><strong>Photo or documents</strong><span>Track asset photos, invoices, warranty files, or QR labels.</span></div>
           <datalist id="asset-categories">{filterOptions.categories.map((value) => <option value={value} key={value} />)}</datalist>
           <datalist id="asset-departments">{filterOptions.departments.map((value) => <option value={value} key={value} />)}</datalist>
           <datalist id="asset-locations">{locations.map((value) => <option value={value} key={value} />)}</datalist>
@@ -345,7 +357,7 @@ export default function AssetsPage() {
           <div><dt>Condition</dt><dd>{selectedAsset.condition}</dd></div>
           <div><dt>Last updated</dt><dd>{selectedAsset.lastUpdated}</dd></div>
         </dl>
-        <section className="asset-identifier-card"><div className="qr-placeholder">{selectedAsset.tag}</div><div><strong>{selectedAsset.qrCode}</strong><span>QR / asset identifier placeholder</span></div></section>
+        <section className="asset-identifier-card"><div className="qr-placeholder">{selectedAsset.tag}</div><div><strong>{selectedAsset.qrCode}</strong><span>QR / asset identifier</span></div></section>
         <section className="asset-document-card"><FileText size={17} /><div><strong>Photo and documents</strong><span>Asset image, invoice, warranty, and ownership files appear here.</span></div></section>
         <section className="asset-notes-card"><h3>Notes</h3><p>{selectedAsset.notes}</p></section>
         <HistorySection title="Allocation history" entries={selectedAsset.allocationHistory} empty="No allocation history has been recorded yet." />

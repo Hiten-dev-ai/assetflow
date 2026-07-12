@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Activity, BarChart3, Boxes, Building2, CalendarDays, ClipboardCheck, Gauge, LogOut, Moon, PackageCheck, Sun, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
-import { currentUser, signOut, type LocalUser } from "../lib/localAuth";
+import { currentUser, refreshCurrentUser, signOut, type LocalUser } from "../lib/localAuth";
 
 const primary = [{ label:"Overview", href:"/", icon:Gauge }, { label:"Assets", href:"/assets", icon:Boxes }, { label:"Allocations", href:"/allocations", icon:PackageCheck }, { label:"Bookings", href:"/bookings", icon:CalendarDays }, { label:"Maintenance", href:"/maintenance", icon:Wrench }, { label:"Audits", href:"/audits", icon:ClipboardCheck }, { label:"Reports", href:"/reports", icon:BarChart3 }];
 const secondary = [{ label:"Organization", href:"/organization", icon:Building2 }, { label:"Activity log", href:"/activity", icon:Activity }];
@@ -17,7 +17,10 @@ export function AppSidebar() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    const timer = window.setTimeout(() => setUser(currentUser()), 0);
+    const timer = window.setTimeout(() => {
+      setUser(currentUser());
+      void refreshCurrentUser().then(setUser);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [dark]);
 
@@ -42,8 +45,8 @@ export function AppSidebar() {
     <div className="sidebar-footer">
       <button className="sidebar-theme-toggle" onClick={toggleTheme} aria-label={dark ? "Use light theme" : "Use dark theme"}>{dark ? <Sun size={17}/> : <Moon size={17}/>}<span>{dark ? "Light theme" : "Dark theme"}</span></button>
       <nav className="sidebar-secondary" aria-label="Administration">{secondary.map(renderLink)}</nav>
-      <div className="sidebar-account"><span className="sidebar-avatar">{initials}</span><span><strong>{user?.name ?? "Hiten S"}</strong><small>{user?.role === "ADMIN" ? "Administrator" : "Employee"}</small></span></div>
-      <button className="sidebar-logout" onClick={() => { signOut(); router.push("/login"); }} aria-label="Sign out"><LogOut size={16}/><span>Sign out</span></button>
+      <div className="sidebar-account"><span className="sidebar-avatar">{initials}</span><span><strong>{user?.name ?? "AssetFlow User"}</strong><small>{user?.employeeRole ?? (user?.role === "ADMIN" ? "Admin" : "Employee")}</small></span></div>
+      <button className="sidebar-logout" onClick={() => { void signOut().finally(() => router.push("/login")); }} aria-label="Sign out"><LogOut size={16}/><span>Sign out</span></button>
     </div>
   </aside>;
 }

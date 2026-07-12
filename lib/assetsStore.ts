@@ -1,5 +1,5 @@
-import seedAssets from "../data/assets.json";
 import { getD1 } from "@/db";
+import { seedAssetDirectory } from "./assetDirectory";
 import {
   buildAssetRecord,
   nextAssetTag,
@@ -260,7 +260,7 @@ async function seedIfEmpty() {
   const count = await database.prepare("SELECT COUNT(*) AS count FROM assets").first<{ count: number }>();
   if ((count?.count ?? 0) > 0) return;
 
-  for (const asset of seedAssets as AssetRecord[]) {
+  for (const asset of seedAssetDirectory as AssetRecord[]) {
     await insertRecord(asset);
   }
 }
@@ -307,7 +307,7 @@ export async function updateAsset(tag: string, payload: unknown) {
     await database.batch([
       database.prepare(`
         UPDATE assets
-        SET name = ?, category_id = ?, serial_number = ?, acquisition_date = ?, acquisition_cost = ?, condition = ?, location = ?, shared = ?
+        SET name = ?, category_id = ?, serial_number = ?, acquisition_date = ?, acquisition_cost = ?, condition = ?, location = ?, status = ?, shared = ?
         WHERE tag = ?
       `).bind(
         asset.name,
@@ -317,6 +317,7 @@ export async function updateAsset(tag: string, payload: unknown) {
         asset.acquisitionCost,
         asset.condition,
         asset.location,
+        databaseStatuses[asset.status],
         asset.shared ? 1 : 0,
         tag,
       ),

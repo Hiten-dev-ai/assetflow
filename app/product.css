@@ -2615,6 +2615,59 @@ body.assetflow-dialog-open .product-content > :not(.asset-modal-backdrop):not(.a
   margin: clamp(24px, 3vw, 38px) 0 14px;
 }
 
+.three-fields,
+.audit-control-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.maintenance-create {
+  margin-bottom: 18px;
+}
+
+.auditor-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.auditor-picker button,
+.audit-cycle-row {
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 9px 11px;
+  text-align: left;
+}
+
+.auditor-picker button.selected,
+.audit-cycle-row.selected {
+  border-color: var(--green);
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.audit-cycle-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+}
+
+.audit-cycle-row span,
+.audit-cycle-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .three-fields,
+  .audit-control-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .allocation-summary-grid article,
 .allocation-card {
   border: 1px solid var(--af-line);

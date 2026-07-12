@@ -1,138 +1,73 @@
-import { authRoleFromEmployee, ensureUserEmployee, readEmployees } from "./organizationDirectory";
-
 export type LocalUser = {
   id: string;
+  employeeId: string;
   name: string;
   username: string;
-  passwordHash: string;
   role: "ADMIN" | "EMPLOYEE";
-  createdAt: string;
+  employeeRole: "Employee" | "Department Head" | "Asset Manager" | "Admin";
+  status: "Active" | "Inactive";
+  departmentId: string;
+  departmentName: string;
 };
 
-type StoredUser = Partial<LocalUser> & { email?: string; password?: string };
-
-const USERS_KEY = "assetflow-users";
-const SESSION_KEY = "assetflow-session";
-const PASSWORD_SALT = "assetflow-local-auth-v2";
-const legacyDemoUsernames = new Set([
-  "hiten.s@assetflow.demo",
-  "sujith.p@assetflow.demo",
-  "maha.l@assetflow.demo",
-  "admin@assetflow.local",
-]);
+const USER_CACHE_KEY = "assetflow-current-user";
 
 function hasStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function normalizeUsername(username: string) {
-  return username.trim().toLowerCase();
-}
-
-function hashPassword(password: string) {
-  let hash = 2166136261;
-  const source = `${PASSWORD_SALT}:${password}`;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `v2:${(hash >>> 0).toString(16).padStart(8, "0")}`;
-}
-
-function cleanName(name: string, username: string) {
-  const trimmed = name.trim();
-  if (trimmed) return trimmed;
-  return username.split("@")[0]?.replace(/[._-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Asset Flow User";
-}
-
-function readRawUsers(): StoredUser[] {
-  if (!hasStorage()) return [];
-  try {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]") as StoredUser[];
-    return Array.isArray(users) ? users : [];
-  } catch {
-    return [];
-  }
-}
-
-function normalizeStoredUser(user: StoredUser): LocalUser | null {
-  const username = normalizeUsername(user.username ?? user.email ?? "");
-  if (!username || legacyDemoUsernames.has(username)) return null;
-
-  const passwordHash = user.passwordHash ?? (user.password ? hashPassword(user.password) : "");
-  if (!passwordHash) return null;
-
-  return {
-    id: user.id ?? crypto.randomUUID(),
-    name: cleanName(user.name ?? "", username),
-    username,
-    passwordHash,
-    role: user.role === "ADMIN" ? "ADMIN" : "EMPLOYEE",
-    createdAt: user.createdAt ?? new Date().toISOString(),
-  };
-}
-
-function writeUsers(users: LocalUser[]) {
+function cacheUser(user: LocalUser | null) {
   if (!hasStorage()) return;
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  if (user) localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+  else localStorage.removeItem(USER_CACHE_KEY);
 }
 
-export function readUsers(): LocalUser[] {
-  const users = readRawUsers().map(normalizeStoredUser).filter((user): user is LocalUser => Boolean(user));
-  writeUsers(users);
-  return users;
-}
-
-export function signUp(name: string, username: string, password: string): LocalUser {
-  const normalizedUsername = normalizeUsername(username);
-  if (!normalizedUsername) throw new Error("Enter a username or work email.");
-  if (password.length < 8) throw new Error("Password must have at least 8 characters.");
-
-  const users = readUsers();
-  if (users.some((user) => user.username === normalizedUsername)) {
-    throw new Error("An account with this username already exists.");
-  }
-
-  const user: LocalUser = {
-    id: crypto.randomUUID(),
-    name: cleanName(name, normalizedUsername),
-    username: normalizedUsername,
-    passwordHash: hashPassword(password),
-    role: users.length === 0 ? "ADMIN" : "EMPLOYEE",
-    createdAt: new Date().toISOString(),
-  };
-
-  writeUsers([...users, user]);
-  ensureUserEmployee(user);
-  return user;
-}
-
-export function signIn(username: string, password: string): LocalUser {
-  const users = readUsers();
-  if (users.length === 0) throw new Error("Create your first Asset Flow account to continue.");
-
-  const normalizedUsername = normalizeUsername(username);
-  const passwordHash = hashPassword(password);
-  const user = users.find((candidate) => candidate.username === normalizedUsername && candidate.passwordHash === passwordHash);
-  if (!user) throw new Error("Incorrect username or password.");
-
-  const employee = readEmployees().find((candidate) => candidate.email.trim().toLowerCase() === normalizedUsername);
-  if (employee?.status === "Inactive") throw new Error("Your employee profile is inactive. Contact an administrator.");
-  const syncedEmployee = ensureUserEmployee(user);
-  const syncedUser = { ...user, role: authRoleFromEmployee(syncedEmployee ?? employee) };
-
-  localStorage.setItem(SESSION_KEY, user.id);
-  return syncedUser;
+async function readJson<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => null) as T & { error?: string };
+  if (!response.ok) throw new Error(payload?.error ?? "Unable to continue.");
+  return payload;
 }
 
 export function currentUser(): LocalUser | null {
   if (!hasStorage()) return null;
-  const id = localStorage.getItem(SESSION_KEY);
-  if (!id) return null;
-  return readUsers().find((user) => user.id === id) ?? null;
+  try {
+    return JSON.parse(localStorage.getItem(USER_CACHE_KEY) ?? "null") as LocalUser | null;
+  } catch {
+    return null;
+  }
 }
 
-export function signOut() {
-  if (!hasStorage()) return;
-  localStorage.removeItem(SESSION_KEY);
+export async function refreshCurrentUser(): Promise<LocalUser | null> {
+  const response = await fetch("/api/auth/me", { cache: "no-store" });
+  if (!response.ok) {
+    cacheUser(null);
+    return null;
+  }
+  const payload = await response.json() as { user: LocalUser | null };
+  cacheUser(payload.user);
+  return payload.user;
+}
+
+export async function signUp(name: string, username: string, password: string) {
+  await readJson(await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, username, password }),
+  }));
+  return { username: username.trim().toLowerCase() };
+}
+
+export async function signIn(username: string, password: string): Promise<LocalUser> {
+  const payload = await readJson<{ user: LocalUser }>(await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  }));
+  cacheUser(payload.user);
+  return payload.user;
+}
+
+export async function signOut() {
+  await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+  cacheUser(null);
 }
