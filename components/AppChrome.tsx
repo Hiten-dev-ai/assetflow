@@ -13,19 +13,23 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const [authorized, setAuthorized] = useState(isLoginRoute);
 
   useEffect(() => {
-    if (isLoginRoute) {
+    const timer = window.setTimeout(() => {
+      if (isLoginRoute) {
+        setAuthorized(true);
+        return;
+      }
+
+      if (!currentUser()) {
+        setAuthorized(false);
+        router.replace("/login");
+        return;
+      }
+
       setAuthorized(true);
-      return;
-    }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }, 0);
 
-    if (!currentUser()) {
-      setAuthorized(false);
-      router.replace("/login");
-      return;
-    }
-
-    setAuthorized(true);
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    return () => window.clearTimeout(timer);
   }, [isLoginRoute, pathname, router]);
 
   if (isLoginRoute) return <>{children}</>;
