@@ -4,6 +4,8 @@ import { CheckCircle2, Eye, FileText, Plus, Search, Upload, X } from "lucide-rea
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { FeatureShell } from "../../components/FeatureShell";
 import { recordActivity } from "../../lib/activityLog";
+import { readAssetDirectory, writeAssetDirectory } from "../../lib/assetDirectory";
+import { readAssetCategories, readDepartments } from "../../lib/organizationDirectory";
 
 type LifecycleStatus = "Available" | "Allocated" | "Reserved" | "Under Maintenance" | "Lost" | "Retired" | "Disposed";
 type AssetCondition = "Excellent" | "Good" | "Fair" | "Needs Service" | "Damaged";
@@ -210,7 +212,10 @@ function formatCurrency(amount: number) {
 }
 
 export default function AssetsPage() {
-  const [assets, setAssets] = useState(seedAssets);
+  const [assets, setAssets] = useState<AssetRecord[]>(() => {
+    const records = readAssetDirectory() as AssetRecord[];
+    return records.length > 0 ? records : seedAssets;
+  });
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState({
     category: "All",
@@ -225,12 +230,14 @@ export default function AssetsPage() {
   const [toast, setToast] = useState("");
   const [creating, setCreating] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [masterCategories] = useState(() => readAssetCategories().filter((category) => category.status === "Active").map((category) => category.name));
+  const [masterDepartments] = useState(() => readDepartments().filter((department) => department.status === "Active").map((department) => department.name));
 
   const filterOptions = useMemo(() => ({
-    categories: unique([...categories, ...assets.map((asset) => asset.category)]),
-    departments: unique([...departments, ...assets.map((asset) => asset.department)]),
+    categories: unique([...categories, ...masterCategories, ...assets.map((asset) => asset.category)]),
+    departments: unique([...departments, ...masterDepartments, ...assets.map((asset) => asset.department)]),
     locations: unique([...locations, ...assets.map((asset) => asset.location)]),
-  }), [assets]);
+  }), [assets, masterCategories, masterDepartments]);
 
   const visibleAssets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -262,6 +269,10 @@ export default function AssetsPage() {
     document.body.classList.toggle("assetflow-dialog-open", dialogOpen);
     return () => document.body.classList.remove("assetflow-dialog-open");
   }, [dialogOpen]);
+
+  useEffect(() => {
+    writeAssetDirectory(assets);
+  }, [assets]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -413,8 +424,8 @@ export default function AssetsPage() {
           <label className="asset-toggle"><input type="checkbox" checked={form.shared} onChange={(event) => setForm({ ...form, shared: event.target.checked })} /><span>Shared / bookable resource</span></label>
           <label className="asset-notes"><span>Notes</span><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Lifecycle notes, warranty details, accessories, ownership context" /></label>
           <div className="asset-upload-placeholder"><Upload size={17} /><strong>Photo or documents</strong><span>Placeholder for asset photos, invoices, warranty files, or QR labels.</span></div>
-          <datalist id="asset-categories">{categories.map((value) => <option value={value} key={value} />)}</datalist>
-          <datalist id="asset-departments">{departments.map((value) => <option value={value} key={value} />)}</datalist>
+          <datalist id="asset-categories">{filterOptions.categories.map((value) => <option value={value} key={value} />)}</datalist>
+          <datalist id="asset-departments">{filterOptions.departments.map((value) => <option value={value} key={value} />)}</datalist>
           <datalist id="asset-locations">{locations.map((value) => <option value={value} key={value} />)}</datalist>
           {formError && <p className="asset-form-error" role="alert">{formError}</p>}
           <footer><button type="button" className="button" onClick={closeCreateModal}>Cancel</button><button type="submit" className="button primary">Create Asset</button></footer>

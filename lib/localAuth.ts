@@ -1,3 +1,5 @@
+import { authRoleFromEmployee, ensureUserEmployee, readEmployees } from "./organizationDirectory";
+
 export type LocalUser = {
   id: string;
   name: string;
@@ -101,6 +103,7 @@ export function signUp(name: string, username: string, password: string): LocalU
   };
 
   writeUsers([...users, user]);
+  ensureUserEmployee(user);
   return user;
 }
 
@@ -113,8 +116,13 @@ export function signIn(username: string, password: string): LocalUser {
   const user = users.find((candidate) => candidate.username === normalizedUsername && candidate.passwordHash === passwordHash);
   if (!user) throw new Error("Incorrect username or password.");
 
+  const employee = readEmployees().find((candidate) => candidate.email.trim().toLowerCase() === normalizedUsername);
+  if (employee?.status === "Inactive") throw new Error("Your employee profile is inactive. Contact an administrator.");
+  const syncedEmployee = ensureUserEmployee(user);
+  const syncedUser = { ...user, role: authRoleFromEmployee(syncedEmployee ?? employee) };
+
   localStorage.setItem(SESSION_KEY, user.id);
-  return user;
+  return syncedUser;
 }
 
 export function currentUser(): LocalUser | null {
