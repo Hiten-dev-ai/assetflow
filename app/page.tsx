@@ -3,11 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppSidebar } from "../components/AppSidebar";
+import { LoginScreen } from "../components/LoginScreen";
+import { currentUser } from "../lib/localAuth";
 
 const kpis = [["Assets available", "284", "+12 this month", "green"], ["Assets allocated", "1,248", "81% utilization", "blue"], ["Maintenance today", "18", "5 need approval", "amber"], ["Active bookings", "36", "8 starting soon", "violet"], ["Pending transfers", "7", "3 overdue", "rose"], ["Upcoming returns", "24", "Next 7 days", "slate"]];
 const allocations = [{ tag:"AF-0114", asset:"MacBook Pro 14", holder:"Priya Nair", department:"Design", due:"10 Jul 2026", status:"2d overdue" }, { tag:"AF-0088", asset:"Dell Latitude 7440", holder:"Arjun Mehta", department:"Operations", due:"11 Jul 2026", status:"1d overdue" }, { tag:"AF-0203", asset:"Canon EOS R6", holder:"Media Studio", department:"Marketing", due:"12 Jul 2026", status:"Due today" }];
 const activity = [{ icon:"AS", title:"Asset AF-0317 assigned", detail:"Neha Singh · 8 minutes ago", kind:"normal" }, { icon:"MR", title:"Maintenance request approved", detail:"AF-0092 · 24 minutes ago", kind:"normal" }, { icon:"BK", title:"Room Atlas booking confirmed", detail:"Finance · 41 minutes ago", kind:"normal" }, { icon:"!", title:"Transfer request submitted", detail:"AF-0114 · 1 hour ago", kind:"urgent" }];
-export default function Dashboard() {
+export default function AssetFlow() {
+  const [signedIn, setSignedIn] = useState(() => typeof window !== "undefined" && currentUser() !== null);
+
+  if (!signedIn) {
+    return <LoginScreen onAuthenticated={() => setSignedIn(true)} />;
+  }
+
+  return <Dashboard />;
+}
+
+function Dashboard() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [reminded, setReminded] = useState<string[]>([]);
