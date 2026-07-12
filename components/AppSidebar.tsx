@@ -17,7 +17,7 @@ const secondary = [
 export function AppSidebar(){
   const pathname=usePathname();
   const[dark,setDark]=useState(false);
-  useEffect(()=>{const stored=localStorage.getItem("assetflow-theme");const next=stored?stored==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;setDark(next);document.documentElement.dataset.theme=next?"dark":"light"},[]);
+  useEffect(()=>{const stored=localStorage.getItem("assetflow-theme");const next=stored?stored==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;const timer=window.setTimeout(()=>setDark(next),0);document.documentElement.dataset.theme=next?"dark":"light";return()=>window.clearTimeout(timer)},[]);
   const toggleTheme=()=>{const next=!dark;setDark(next);document.documentElement.dataset.theme=next?"dark":"light";localStorage.setItem("assetflow-theme",next?"dark":"light")};
   const isCurrent=(href:string)=>href==="/"?pathname==="/":pathname===href||pathname.startsWith(`${href}/`);
   const renderLink=({label,href,icon:Icon}:(typeof primary)[number])=><Link className={`sidebar-link${isCurrent(href)?" is-current":""}`} href={href} key={href} aria-current={isCurrent(href)?"page":undefined} title={label}><span className="sidebar-icon"><Icon aria-hidden="true" size={19} strokeWidth={1.8}/></span><span className="sidebar-label">{label}</span><ChevronRight className="sidebar-chevron" aria-hidden="true" size={14}/></Link>;
