@@ -9,6 +9,8 @@ type InitiateAuditPayload = {
   locationId?: string;
   auditorIds?: string[];
   createdBy?: string;
+  startDate?: number;
+  endDate?: number;
 };
 
 type VerifyAuditPayload = {
@@ -24,6 +26,10 @@ type AuditCycleRow = {
   locationId: string | null;
   status: AuditStatus;
   startedAt: number;
+  startDate: number;
+  endDate: number;
+  extensionGrantedAt: number | null;
+  extensionGrantedBy: string | null;
   closedAt: number | null;
   createdBy: string;
 };
@@ -72,6 +78,12 @@ function optionalText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function parseDate(value: unknown, field: string) {
+  const parsed = typeof value === "number" ? value : Date.parse(String(value ?? ""));
+  if (!Number.isFinite(parsed)) throw new AuditStoreError(`${field} must be a valid date.`);
+  return parsed;
+}
+
 function parseInitiatePayload(payload: unknown): InitiateAuditPayload {
   if (!payload || typeof payload !== "object") {
     throw new AuditStoreError("Audit payload is required.");
@@ -93,11 +105,17 @@ function parseInitiatePayload(payload: unknown): InitiateAuditPayload {
     throw new AuditStoreError("At least one auditor is required.");
   }
 
+  const startDate = parseDate(source.startDate, "Start date");
+  const endDate = parseDate(source.endDate, "End date");
+  if (startDate >= endDate) throw new AuditStoreError("End date must be after the start date.");
+
   return {
     departmentId: departmentId ?? undefined,
     locationId: locationId ?? undefined,
     auditorIds,
     createdBy: requiredText(source.createdBy, "Admin id"),
+    startDate,
+    endDate,
   };
 }
 
@@ -140,6 +158,10 @@ async function ensureSchema() {
           location_id TEXT,
           status TEXT NOT NULL DEFAULT 'ACTIVE',
           started_at INTEGER NOT NULL,
+          start_date INTEGER NOT NULL,
+          end_date INTEGER NOT NULL,
+          extension_granted_at INTEGER,
+          extension_granted_by TEXT,
           closed_at INTEGER,
           created_by TEXT NOT NULL
         )`),
@@ -160,10 +182,22 @@ async function ensureSchema() {
           FOREIGN KEY (audit_cycle_id) REFERENCES audit_cycles(id) ON DELETE CASCADE,
           FOREIGN KEY (asset_id) REFERENCES assets(id)
         )`),
+        database.prepare(`CREATE TABLE IF NOT EXISTS discrepancy_reports (
+          id TEXT PRIMARY KEY NOT NULL,
+          audit_cycle_id TEXT NOT NULL UNIQUE,
+          generated_by TEXT NOT NULL,
+          generated_at INTEGER NOT NULL,
+          missing_count INTEGER NOT NULL,
+          damaged_count INTEGER NOT NULL,
+          items_snapshot TEXT NOT NULL,
+          resolution_actions TEXT NOT NULL DEFAULT '[]',
+          FOREIGN KEY (audit_cycle_id) REFERENCES audit_cycles(id) ON DELETE CASCADE
+        )`),
         database.prepare("CREATE INDEX IF NOT EXISTS audit_cycles_scope_status_idx ON audit_cycles (department_id, location_id, status)"),
         database.prepare("CREATE INDEX IF NOT EXISTS audit_assignments_cycle_idx ON audit_assignments (audit_cycle_id)"),
         database.prepare("CREATE INDEX IF NOT EXISTS audit_items_cycle_status_idx ON audit_items (audit_cycle_id, verification_status)"),
         database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS audit_items_cycle_asset_unique ON audit_items (audit_cycle_id, asset_id)"),
+        database.prepare("CREATE INDEX IF NOT EXISTS discrepancy_reports_generated_idx ON discrepancy_reports (generated_at)"),
         database.prepare("CREATE INDEX IF NOT EXISTS assets_location_idx ON assets (location)"),
         database.prepare("CREATE INDEX IF NOT EXISTS asset_profiles_department_idx ON asset_profiles (department)"),
       ]);
@@ -183,7 +217,7 @@ function normalizeLocation(value: string | undefined) {
 async function getCycle(cycleId: string) {
   await ensureSchema();
   const cycle = await getD1()
-    .prepare(`SELECT id, department_id AS departmentId, location_id AS locationId, status, started_at AS startedAt, closed_at AS closedAt, created_by AS createdBy
+    .prepare(`SELECT id, department_id AS departmentId, location_id AS locationId, status, started_at AS startedAt, start_date AS startDate, end_date AS endDate, extension_granted_at AS extensionGrantedAt, extension_granted_by AS extensionGrantedBy, closed_at AS closedAt, created_by AS createdBy
       FROM audit_cycles WHERE id = ? LIMIT 1`)
     .bind(cycleId)
     .first<AuditCycleRow>();
@@ -258,8 +292,8 @@ export async function initiateAuditCycle(payload: unknown) {
   const cycleId = crypto.randomUUID();
   const now = Date.now();
   const statements = [
-    database.prepare(`INSERT INTO audit_cycles (id, department_id, location_id, status, started_at, created_by)
-      VALUES (?, ?, ?, 'ACTIVE', ?, ?)`).bind(cycleId, departmentId, locationId, now, draft.createdBy),
+    database.prepare(`INSERT INTO audit_cycles (id, department_id, location_id, status, started_at, start_date, end_date, created_by)
+      VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?, ?)`).bind(cycleId, departmentId, locationId, now, draft.startDate, draft.endDate, draft.createdBy),
     ...draft.auditorIds.map((employeeId) => database.prepare(`INSERT INTO audit_assignments (id, audit_cycle_id, employee_id)
       VALUES (?, ?, ?)`).bind(crypto.randomUUID(), cycleId, employeeId)),
     ...scopeAssets.results.map((asset) => database.prepare(`INSERT INTO audit_items (id, audit_cycle_id, asset_id, expected_location, verification_status, updated_at)
@@ -271,6 +305,8 @@ export async function initiateAuditCycle(payload: unknown) {
   return {
     cycleId,
     status: "ACTIVE" as AuditStatus,
+    startDate: new Date(draft.startDate).toISOString(),
+    endDate: new Date(draft.endDate).toISOString(),
     totalItems: scopeAssets.results.length,
     summary: await summarize(cycleId),
   };
@@ -291,6 +327,13 @@ export async function verifyAuditItem(cycleId: string, payload: unknown) {
   if (cycle.status === "CLOSED") {
     throw new AuditStoreError("This audit cycle is closed and can no longer be modified.", 409);
   }
+  const now = Date.now();
+  if (Number.isFinite(cycle.startDate) && now < cycle.startDate) {
+    throw new AuditStoreError("This audit cycle has not started yet.", 409);
+  }
+  if (Number.isFinite(cycle.endDate) && now > cycle.endDate) {
+    throw new AuditStoreError("This audit cycle is overdue. An administrator must extend the schedule before updates can continue.", 409);
+  }
 
   const database = getD1();
   const item = draft.auditItemId
@@ -307,7 +350,7 @@ export async function verifyAuditItem(cycleId: string, payload: unknown) {
 
   await database.prepare(`UPDATE audit_items
     SET verification_status = ?, verified_by = ?, updated_at = ?
-    WHERE id = ?`).bind(draft.status, draft.verifiedBy, Date.now(), item.id).run();
+    WHERE id = ?`).bind(draft.status, draft.verifiedBy, now, item.id).run();
 
   const summary = await summarize(cycleId);
   publishAuditSummary(summary);
@@ -323,6 +366,7 @@ export async function verifyAuditItem(cycleId: string, payload: unknown) {
 
 export async function getDiscrepancyReport(cycleId: string) {
   const cycle = await getCycle(cycleId);
+  const saved = await getD1().prepare(`SELECT id, generated_by AS generatedBy, generated_at AS generatedAt, missing_count AS missingCount, damaged_count AS damagedCount, items_snapshot AS itemsSnapshot, resolution_actions AS resolutionActions FROM discrepancy_reports WHERE audit_cycle_id = ? LIMIT 1`).bind(cycleId).first<Record<string, unknown>>();
   const flagged = await getD1()
     .prepare(`SELECT ai.id, ai.asset_id AS assetId, ai.expected_location AS expectedLocation,
         ai.verification_status AS verificationStatus, ai.verified_by AS verifiedBy, ai.updated_at AS updatedAt,
@@ -338,7 +382,36 @@ export async function getDiscrepancyReport(cycleId: string) {
     cycle,
     summary: await summarize(cycleId),
     discrepancies: flagged.results,
+    report: saved ? {
+      ...saved,
+      itemsSnapshot: typeof saved.itemsSnapshot === "string" ? JSON.parse(saved.itemsSnapshot) : saved.itemsSnapshot,
+      resolutionActions: typeof saved.resolutionActions === "string" ? JSON.parse(saved.resolutionActions) : saved.resolutionActions,
+    } : null,
   };
+}
+
+export async function generateDiscrepancyReport(cycleId: string, payload: unknown) {
+  const cycle = await getCycle(cycleId);
+  if (cycle.status === "CLOSED") throw new AuditStoreError("A closed audit cycle cannot regenerate its discrepancy report.", 409);
+  const generatedBy = payload && typeof payload === "object"
+    ? requiredText((payload as Record<string, unknown>).generatedBy, "Auditor or admin id")
+    : (() => { throw new AuditStoreError("Auditor or admin id is required."); })();
+  const database = getD1();
+  const flagged = await database.prepare(`SELECT ai.id, ai.asset_id AS assetId, ai.expected_location AS expectedLocation,
+      ai.verification_status AS verificationStatus, ai.verified_by AS verifiedBy, ai.updated_at AS updatedAt,
+      a.tag, a.name, a.location AS currentLocation
+    FROM audit_items AS ai INNER JOIN assets AS a ON a.id = ai.asset_id
+    WHERE ai.audit_cycle_id = ? AND ai.verification_status IN ('MISSING', 'DAMAGED')
+    ORDER BY ai.updated_at DESC`).bind(cycleId).all<Record<string, unknown>>();
+  const missingCount = flagged.results.filter((item) => item.verificationStatus === "MISSING").length;
+  const damagedCount = flagged.results.filter((item) => item.verificationStatus === "DAMAGED").length;
+  const now = Date.now();
+  const reportId = crypto.randomUUID();
+  await database.prepare(`INSERT INTO discrepancy_reports (id, audit_cycle_id, generated_by, generated_at, missing_count, damaged_count, items_snapshot, resolution_actions)
+    VALUES (?, ?, ?, ?, ?, ?, ?, '[]')
+    ON CONFLICT(audit_cycle_id) DO UPDATE SET generated_by = excluded.generated_by, generated_at = excluded.generated_at, missing_count = excluded.missing_count, damaged_count = excluded.damaged_count, items_snapshot = excluded.items_snapshot`).bind(reportId, cycleId, generatedBy, now, missingCount, damagedCount, JSON.stringify(flagged.results)).run();
+  const saved = await database.prepare(`SELECT id FROM discrepancy_reports WHERE audit_cycle_id = ? LIMIT 1`).bind(cycleId).first<{ id: string }>();
+  return { cycleId, reportId: saved?.id ?? reportId, generatedBy, generatedAt: new Date(now).toISOString(), missingCount, damagedCount, discrepancies: flagged.results, summary: await summarize(cycleId) };
 }
 
 export async function closeAuditCycle(cycleId: string, payload: unknown) {
@@ -360,7 +433,14 @@ export async function closeAuditCycle(cycleId: string, payload: unknown) {
     throw new AuditStoreError("This audit cycle has no audit items to close.", 409);
   }
 
+  const report = await database.prepare(`SELECT id FROM discrepancy_reports WHERE audit_cycle_id = ? LIMIT 1`).bind(cycleId).first<{ id: string }>();
+  if (!report) {
+    throw new AuditStoreError("Generate the discrepancy report before closing this audit cycle.", 409);
+  }
+
   const now = Date.now();
+  const suppliedActions = payload && typeof payload === "object" ? (payload as Record<string, unknown>).resolutionActions : undefined;
+  const resolutionActions = Array.isArray(suppliedActions) ? suppliedActions : items.results.filter((item) => item.verificationStatus === "MISSING" || item.verificationStatus === "DAMAGED").map((item) => ({ assetId: item.assetId, action: item.verificationStatus === "MISSING" ? "MARKED_LOST" : "MAINTENANCE_REQUEST_CREATED", resolvedBy: closedBy }));
   const statements = [
     ...items.results
       .filter((item) => item.verificationStatus === "MISSING")
@@ -381,6 +461,7 @@ export async function closeAuditCycle(cycleId: string, payload: unknown) {
         END
         WHERE id = ?`).bind(item.assetId)),
     database.prepare("UPDATE audit_cycles SET status = 'CLOSED', closed_at = ? WHERE id = ?").bind(now, cycleId),
+    database.prepare("UPDATE discrepancy_reports SET resolution_actions = ? WHERE audit_cycle_id = ?").bind(JSON.stringify(resolutionActions), cycleId),
     database.prepare(`INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, metadata, created_at)
       VALUES (NULL, 'AUDIT_CLOSED', 'audit_cycle', ?, ?, ?)`).bind(cycleId, JSON.stringify({ closedBy, status: "CLOSED" }), now),
   ];
@@ -395,6 +476,20 @@ export async function closeAuditCycle(cycleId: string, payload: unknown) {
     closedAt: new Date(now).toISOString(),
     summary,
   };
+}
+
+export async function extendAuditCycle(cycleId: string, payload: unknown) {
+  const cycle = await getCycle(cycleId);
+  if (cycle.status === "CLOSED") throw new AuditStoreError("A closed audit cycle cannot be extended.", 409);
+  const source = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const actorRole = requiredText(source.actorRole, "Actor role").toUpperCase();
+  if (actorRole !== "ADMIN" && actorRole !== "ASSET_MANAGER") throw new AuditStoreError("Only an Admin or Asset Manager can extend an audit cycle.", 403);
+  const extendedBy = requiredText(source.extendedBy, "Admin id");
+  const endDate = parseDate(source.endDate, "End date");
+  if (endDate <= cycle.endDate) throw new AuditStoreError("The extension date must be after the current end date.");
+  const now = Date.now();
+  await getD1().prepare(`UPDATE audit_cycles SET end_date = ?, extension_granted_at = ?, extension_granted_by = ? WHERE id = ? AND status <> 'CLOSED'`).bind(endDate, now, extendedBy, cycleId).run();
+  return { ...(await getCycle(cycleId)), endDate: new Date(endDate).toISOString(), extensionGrantedAt: new Date(now).toISOString(), extensionGrantedBy: extendedBy };
 }
 
 export async function getAuditSummary(cycleId: string) {

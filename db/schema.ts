@@ -6,7 +6,7 @@ export const departments = sqliteTable("departments", {
 });
 export const employees = sqliteTable("employees", {
   id: integer("id").primaryKey({autoIncrement:true}), name:text("name").notNull(), email:text("email").notNull(),
-  departmentId:integer("department_id").references(()=>departments.id), role:text("role",{enum:["ADMIN","ASSET_MANAGER","DEPARTMENT_HEAD","EMPLOYEE"]}).notNull().default("EMPLOYEE"),
+  departmentId:integer("department_id").references(()=>departments.id), role:text("role",{enum:["ADMIN","ASSET_MANAGER","DEPARTMENT_HEAD","EMPLOYEE","TECHNICIAN"]}).notNull().default("EMPLOYEE"),
   status:text("status",{enum:["ACTIVE","INACTIVE"]}).notNull().default("ACTIVE"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 }, table=>[uniqueIndex("employees_email_unique").on(table.email)]);
 export const assetCategories = sqliteTable("asset_categories", {
@@ -29,21 +29,40 @@ export const bookings = sqliteTable("bookings", {
   id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), employeeId:integer("employee_id").notNull().references(()=>employees.id), startAt:integer("start_at",{mode:"timestamp"}).notNull(), endAt:integer("end_at",{mode:"timestamp"}).notNull(), purpose:text("purpose"), status:text("status",{enum:["UPCOMING","ONGOING","COMPLETED","CANCELLED"]}).notNull().default("UPCOMING"),
 });
 export const maintenanceRequests = sqliteTable("maintenance_requests", {
-  id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), requestedBy:integer("requested_by").notNull().references(()=>employees.id), description:text("description").notNull(), priority:text("priority",{enum:["LOW","MEDIUM","HIGH","CRITICAL"]}).notNull().default("MEDIUM"), status:text("status",{enum:["PENDING","APPROVED","REJECTED","TECHNICIAN_ASSIGNED","IN_PROGRESS","RESOLVED"]}).notNull().default("PENDING"), technician:text("technician"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(), resolvedAt:integer("resolved_at",{mode:"timestamp"}),
-});
+  id:integer("id").primaryKey({autoIncrement:true}), assetId:integer("asset_id").notNull().references(()=>assets.id), requestedBy:integer("requested_by").notNull().references(()=>employees.id), description:text("description").notNull(), priority:text("priority",{enum:["LOW","MEDIUM","HIGH","CRITICAL"]}).notNull().default("MEDIUM"), status:text("status",{enum:["PENDING","APPROVED","REJECTED","TECHNICIAN_ASSIGNED","IN_PROGRESS","RESOLVED"]}).notNull().default("PENDING"), technician:text("technician"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(), updatedAt:integer("updated_at",{mode:"timestamp"}), resolvedAt:integer("resolved_at",{mode:"timestamp"}),
+}, table=>[
+  index("maintenance_requests_status_idx").on(table.status),
+  index("maintenance_requests_asset_status_idx").on(table.assetId, table.status),
+]);
 export const notifications = sqliteTable("notifications", {
   id:integer("id").primaryKey({autoIncrement:true}), employeeId:integer("employee_id").notNull().references(()=>employees.id), type:text("type").notNull(), title:text("title").notNull(), body:text("body"), readAt:integer("read_at",{mode:"timestamp"}), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 });
 export const activityLogs = sqliteTable("activity_logs", {
   id:integer("id").primaryKey({autoIncrement:true}), actorId:integer("actor_id").references(()=>employees.id), action:text("action").notNull(), entityType:text("entity_type").notNull(), entityId:text("entity_id").notNull(), metadata:text("metadata",{mode:"json"}), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
 });
+export const maintenanceAssignments = sqliteTable("maintenance_assignments", {
+  id:integer("id").primaryKey({autoIncrement:true}), requestId:integer("request_id").notNull().references(()=>maintenanceRequests.id),
+  technicianId:text("technician_id").notNull(), technicianName:text("technician_name").notNull(), assignedBy:text("assigned_by").notNull(),
+  assignedAt:integer("assigned_at",{mode:"timestamp"}).notNull(), estimatedCompletionAt:integer("estimated_completion_at",{mode:"timestamp"}),
+}, table=>[
+  index("maintenance_assignments_request_idx").on(table.requestId),
+  index("maintenance_assignments_technician_idx").on(table.technicianId),
+]);
+export const maintenanceLogs = sqliteTable("maintenance_logs", {
+  id:integer("id").primaryKey({autoIncrement:true}), requestId:integer("request_id").notNull().references(()=>maintenanceRequests.id),
+  assetId:integer("asset_id").notNull().references(()=>assets.id), actorId:text("actor_id").notNull(),
+  fromStatus:text("from_status"), toStatus:text("to_status").notNull(), notes:text("notes"), cost:real("cost"), createdAt:integer("created_at",{mode:"timestamp"}).notNull(),
+}, table=>[
+  index("maintenance_logs_request_idx").on(table.requestId, table.createdAt),
+  index("maintenance_logs_asset_idx").on(table.assetId, table.createdAt),
+]);
 
 export const auditCycles = sqliteTable("audit_cycles", {
   id:text("id").primaryKey(),
   departmentId:text("department_id"),
   locationId:text("location_id"),
   status:text("status",{enum:["DRAFT","ACTIVE","CLOSED"]}).notNull().default("ACTIVE"),
-  startedAt:integer("started_at",{mode:"timestamp"}).notNull(),
+  startedAt:integer("started_at",{mode:"timestamp"}).notNull(), startDate:integer("start_date",{mode:"timestamp"}).notNull(), endDate:integer("end_date",{mode:"timestamp"}).notNull(), extensionGrantedAt:integer("extension_granted_at",{mode:"timestamp"}), extensionGrantedBy:text("extension_granted_by"),
   closedAt:integer("closed_at",{mode:"timestamp"}),
   createdBy:text("created_by").notNull(),
 }, table=>[index("audit_cycles_scope_status_idx").on(table.departmentId, table.locationId, table.status)]);
@@ -65,4 +84,11 @@ export const auditItems = sqliteTable("audit_items", {
 }, table=>[
   index("audit_items_cycle_status_idx").on(table.auditCycleId, table.verificationStatus),
   uniqueIndex("audit_items_cycle_asset_unique").on(table.auditCycleId, table.assetId),
+]);
+export const discrepancyReports = sqliteTable("discrepancy_reports", {
+  id:text("id").primaryKey(), auditCycleId:text("audit_cycle_id").notNull().references(()=>auditCycles.id), generatedBy:text("generated_by").notNull(), generatedAt:integer("generated_at",{mode:"timestamp"}).notNull(),
+  missingCount:integer("missing_count").notNull(), damagedCount:integer("damaged_count").notNull(), itemsSnapshot:text("items_snapshot",{mode:"json"}).notNull(), resolutionActions:text("resolution_actions",{mode:"json"}).notNull().default("[]"),
+}, table=>[
+  uniqueIndex("discrepancy_reports_cycle_unique").on(table.auditCycleId),
+  index("discrepancy_reports_generated_idx").on(table.generatedAt),
 ]);
