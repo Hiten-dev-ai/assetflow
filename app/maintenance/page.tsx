@@ -13,9 +13,10 @@ const requests = [
 export default function MaintenancePage() {
   const [status, setStatus] = useState("ALL");
   const filtered = useMemo(() => requests.filter((item) => status === "ALL" || item.status === status), [status]);
+  const isAssetManager = true;
   return <FeatureShell title="Maintenance queue" actions={<Link className="primary-button" href="/maintenance/new">Raise request</Link>}>
-    <section className="feature-panel queue-panel"><div className="section-heading"><div><p className="eyebrow accent">Asset Manager view</p><h2>Requests requiring attention</h2></div><label className="inline-filter">Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option>ALL</option><option>PENDING</option><option>APPROVED</option><option>IN_PROGRESS</option></select></label></div>
-      <div className="request-list">{filtered.map((item) => <Link href={`/maintenance/${item.id}`} className="request-row" key={item.id}><span className={`priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span><strong>{item.asset}</strong><small>#{item.id} · {item.issue}</small></span><span className="status-pill">{item.status.replaceAll("_", " ")}</span><time>{item.age}</time><b>→</b></Link>)}</div>
+    <section className="feature-panel queue-panel"><div className="sticky-filter"><div className="section-heading"><div><p className="eyebrow accent">{isAssetManager ? "Asset Manager view" : "Technician view"}</p><h2>Requests requiring attention</h2></div><label className="inline-filter">Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="ALL">All</option><option value="PENDING">Pending Approval</option><option value="IN_PROGRESS">In Progress</option><option value="RESOLVED">Resolved</option></select></label></div></div>
+      <div className="request-list">{filtered.map((item) => <div className="request-row" key={item.id}><span className={`priority ${item.priority.toLowerCase()}`}>{item.priority}</span><Link href={`/maintenance/${item.id}`}><strong>{item.asset}</strong><small>#{item.id} · {item.issue}</small></Link><span className="status-pill">{item.status.replaceAll("_", " ")}</span><time>{item.age}</time>{isAssetManager && item.status === "PENDING" ? <span className="queue-actions"><button>Approve</button><button>Reject</button></span> : <b>→</b>}</div>)}</div>
     </section>
   </FeatureShell>;
 }
